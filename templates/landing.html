@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlShaya Enterprises - AI-Powered BOQ Solutions</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -26,6 +28,7 @@
             --gray-800: #1e293b;
             --gradient-primary: linear-gradient(135deg, #1a365d 0%, #0f1e3d 100%);
             --gradient-gold: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+            --success: #10b981;
         }
 
         body {
@@ -206,6 +209,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -275,44 +279,157 @@
         }
 
         .feature-card {
-            background: var(--white);
-            border-radius: 20px;
-            padding: 2.5rem;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            padding: 45px 35px;
             cursor: pointer;
-            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 20px rgba(26, 54, 93, 0.08);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+            transform-style: preserve-3d;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: none;
+            transform: rotate(0deg);
+        }
+
+        .feature-card:hover::before {
+            opacity: 0;
+            transform: rotate(0deg);
         }
 
         .feature-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            border-color: var(--secondary);
+            transform: none;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
         }
 
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            background: var(--gradient-gold);
-            border-radius: 12px;
+        .card-icon {
+            font-size: 5em;
+            margin-bottom: 25px;
+            display: block;
+            transition: none;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+        }
+
+        .feature-card:hover .card-icon {
+            transform: none;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+        }
+
+        .card-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: #0f1419;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-title {
+            font-size: 2em;
+            font-weight: 800;
+            margin-bottom: 18px;
+            color: #1a365d;
+        }
+
+        .card-description {
+            font-size: 1.05em;
+            color: #64748b;
+            line-height: 1.7;
+            margin-bottom: 25px;
+        }
+
+        .card-features {
+            list-style: none;
+            margin-top: 25px;
+        }
+
+        .card-features li {
+            padding: 10px 0;
+            color: #475569;
+            font-size: 0.95em;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            color: var(--primary-dark);
-            margin-bottom: 1.5rem;
+            transition: none;
         }
 
-        .feature-card h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 1rem;
+        .card-features li:hover {
+            transform: none;
+            color: #475569;
         }
 
-        .feature-card p {
-            color: var(--gray-600);
-            line-height: 1.7;
+        .card-features li::before {
+            content: '✓';
+            color: var(--success);
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-right: 12px;
+            display: inline-block;
+            width: 25px;
+            height: 25px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 25px;
+        }
+
+        .card-cta {
+            margin-top: auto;
+            padding: 14px 28px;
+            background: #d4af37;
+            color: #0f1419;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: none;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            display: block;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .card-cta::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0);
+            transition: none;
+        }
+
+        .card-cta:hover::before {
+            left: -100%;
+        }
+
+        .card-cta:hover {
+            transform: none;
+            box-shadow: none;
         }
 
         /* How It Works Section */
@@ -502,12 +619,14 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">
-                <img src="{{ url_for('static', filename='images/AlShaya-Logo-color@2x.png') }}" alt="AlShaya Enterprises">
+                <img src="{{ url_for('static', filename='images/AlShaya-Logo-color@2x.png') }}"
+                    alt="AlShaya Enterprises">
             </div>
             <ul class="nav-links">
                 <li><a href="#how-it-works">How It Works</a></li>
@@ -522,9 +641,10 @@
     <section class="hero">
         <div class="hero-content">
             <h1>AI-Powered BOQ Solutions</h1>
-            <p class="subtitle">Transform your Bill of Quantities processing with intelligent automation, multi-budget alternatives, and professional offer generation</p>
+            <p class="subtitle">Transform your Bill of Quantities processing with intelligent automation, multi-budget
+                alternatives, and professional offer generation</p>
             <div class="hero-cta">
-                <a href="/app" class="btn btn-primary">Get Started</a>
+                <a href="/app?showHero=true" class="btn btn-primary">Get Started</a>
                 <a href="#how-it-works" class="btn btn-secondary">Learn More</a>
             </div>
         </div>
@@ -607,38 +727,84 @@
                 <h2 style="color: white;">Get Started</h2>
                 <p style="color: rgba(255,255,255,0.9);">Choose your workflow to begin</p>
             </div>
-            <div class="app-grid">
-                <div class="app-card" onclick="showMainApp('quote-pricelist')">
-                    <div class="app-card-icon">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                    </div>
-                    <h3>Quote with Price List</h3>
-                    <p>Upload BOQ and price list to generate accurate quotations</p>
-                    <button class="app-card-btn">Start Now</button>
+            <div class="cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 35px; padding: 40px 20px; max-width: 1400px; margin: 0 auto;">
+                <!-- Card 1: Quote with Price List -->
+                <div class="feature-card" data-card="quote-pricelist">
+                    <span class="card-badge">Popular</span>
+                    <span class="card-icon">💰</span>
+                    <h2 class="card-title">Quote with Price List</h2>
+                    <p class="card-description">
+                        Upload your BOQ with price list to generate professional quotations instantly with accurate pricing
+                        and margins.
+                    </p>
+                    <ul class="card-features">
+                        <li>Upload BOQ + Price List</li>
+                        <li>Auto-extract quantities & prices</li>
+                        <li>Apply margins & factors</li>
+                        <li>Generate PDF/Excel quotes</li>
+                    </ul>
+                    <button class="card-cta" onclick="showMainApp('quote-pricelist')">
+                        Start Quoting →
+                    </button>
                 </div>
-                <div class="app-card" onclick="showMainApp('multi-budget')">
-                    <div class="app-card-icon">
-                        <i class="fas fa-layer-group"></i>
-                    </div>
-                    <h3>Multi-Budget Offers</h3>
-                    <p>Create budget offers with product selection from scraped brands</p>
-                    <button class="app-card-btn">Start Now</button>
+
+                <!-- Card 2: Multi-Budget Offers -->
+                <div class="feature-card" data-card="multi-budget">
+                    <span class="card-badge">AI-Powered</span>
+                    <span class="card-icon">🎯</span>
+                    <h2 class="card-title">Multi-Budget Offers</h2>
+                    <p class="card-description">
+                        Upload BOQ only (no prices) and let AI generate three budget tiers: Budgetary, Mid-Range, and
+                        High-End options.
+                    </p>
+                    <ul class="card-features">
+                        <li>Upload BOQ without prices</li>
+                        <li>AI-generated price estimates</li>
+                        <li>3 budget tier options</li>
+                        <li>Comparative analysis</li>
+                    </ul>
+                    <button class="card-cta" onclick="showMainApp('multi-budget')">
+                        Generate Options →
+                    </button>
                 </div>
-                <div class="app-card" onclick="showMainApp('presentation')">
-                    <div class="app-card-icon">
-                        <i class="fas fa-file-powerpoint"></i>
-                    </div>
-                    <h3>Presentation</h3>
-                    <p>Generate professional presentations from your BOQ data</p>
-                    <button class="app-card-btn">Start Now</button>
+
+                <!-- Card 3: Presentation Generator -->
+                <div class="feature-card" data-card="presentation">
+                    <span class="card-badge">Visual</span>
+                    <span class="card-icon">🎨</span>
+                    <h2 class="card-title">Presentation Generator</h2>
+                    <p class="card-description">
+                        Create stunning visual presentations from your BOQ with images and pricing in professional
+                        PowerPoint format.
+                    </p>
+                    <ul class="card-features">
+                        <li>Upload BOQ with images</li>
+                        <li>Auto-generate slides</li>
+                        <li>Professional templates</li>
+                        <li>Export to PPTX/PDF</li>
+                    </ul>
+                    <button class="card-cta" onclick="showMainApp('presentation')">
+                        Create Presentation →
+                    </button>
                 </div>
-                <div class="app-card" onclick="showMainApp('mas')">
-                    <div class="app-card-icon">
-                        <i class="fas fa-clipboard-list"></i>
-                    </div>
-                    <h3>MAS Document</h3>
-                    <p>Create Material Approval Sheets with detailed specifications</p>
-                    <button class="app-card-btn">Start Now</button>
+
+                <!-- Card 4: MAS Generator -->
+                <div class="feature-card" data-card="mas">
+                    <span class="card-badge">Essential</span>
+                    <span class="card-icon">📋</span>
+                    <h2 class="card-title">MAS Generator</h2>
+                    <p class="card-description">
+                        Generate Material Approval Sheets automatically from your BOQ for streamlined approval workflows.
+                    </p>
+                    <ul class="card-features">
+                        <li>Upload BOQ data</li>
+                        <li>Extract material specs</li>
+                        <li>Generate approval sheets</li>
+                        <li>Export in multiple formats</li>
+                    </ul>
+                    <button class="card-cta" onclick="showMainApp('mas')">
+                        Generate MAS →
+                    </button>
                 </div>
             </div>
         </div>
@@ -646,7 +812,8 @@
 
     <!-- Banner Section -->
     <section class="banner-section">
-        <img src="{{ url_for('static', filename='images/Screenshot_2025-11-14-04-21-38-402_com.android.chrome-edit.jpg') }}" alt="AlShaya Services Banner">
+        <img src="{{ url_for('static', filename='images/Screenshot_2025-11-14-04-21-38-402_com.android.chrome-edit.jpg') }}"
+            alt="AlShaya Services Banner">
     </section>
 
     <!-- Footer -->
@@ -658,9 +825,18 @@
     <script>
         // Function to show main app (integrated with existing functionality)
         function showMainApp(workflowType) {
+            // Add smooth exit animation
+            const body = document.body;
+            body.style.transition = 'opacity 0.6s ease-out';
+            body.style.opacity = '0';
+            
             // Store workflow type in sessionStorage and redirect to main app
             sessionStorage.setItem('workflowType', workflowType);
-            window.location.href = '/app';
+            
+            // Redirect after fade out - navigate directly to app with workflow parameter
+            setTimeout(() => {
+                window.location.href = `/app?workflow=${workflowType}`;
+            }, 600);
         }
 
         // Smooth scroll for anchor links
@@ -691,5 +867,5 @@
         });
     </script>
 </body>
-</html>
 
+</html>

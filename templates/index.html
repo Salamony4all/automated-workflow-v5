@@ -44,6 +44,18 @@
             padding: 0;
         }
 
+        /* Ensure animated background is visible everywhere */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-dark);
+            z-index: 0;
+        }
+
         /* Animated Background */
         .bg-particles {
             position: fixed;
@@ -53,6 +65,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 1;
+            background: var(--primary-dark);
         }
 
         .particle {
@@ -92,7 +105,7 @@
             padding: 0;
             position: relative;
             z-index: 10;
-            background: var(--primary-dark);
+            background: transparent;
             overflow-x: hidden;
             width: 100%;
             box-sizing: border-box;
@@ -181,6 +194,9 @@
             box-shadow: 0 4px 20px rgba(26, 54, 93, 0.08);
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
             transform-style: preserve-3d;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .feature-card::before {
@@ -282,7 +298,7 @@
         }
 
         .card-cta {
-            margin-top: 30px;
+            margin-top: auto;
             padding: 14px 28px;
             background: #d4af37;
             color: #0f1419;
@@ -295,6 +311,9 @@
             width: 100%;
             position: relative;
             overflow: hidden;
+            display: block;
+            text-align: center;
+            box-sizing: border-box;
         }
 
         .card-cta::before {
@@ -864,7 +883,7 @@
                 min-width: 100%;
             }
 
-            /* Hero Section Mobile Styles */
+            /* Hero Section Mobile Styles - Simplified */
             .hero-section {
                 min-height: auto;
                 padding: 0;
@@ -874,36 +893,24 @@
             }
 
             .hero-split-container {
-                flex-direction: column;
-                min-height: auto;
-                padding: 40px 15px 30px;
-                gap: 30px;
-                width: 100%;
-                max-width: 100%;
-                box-sizing: border-box;
-                overflow-x: hidden;
+                grid-template-columns: 1fr;
+                grid-template-areas: "text";
+                padding: clamp(30px, 6vw, 40px) clamp(15px, 4vw, 15px) clamp(20px, 4vw, 20px);
+                gap: clamp(20px, 4vw, 20px);
+            }
+
+            /* Ensure desktop carousel is hidden on mobile */
+            .hero-split-container .hero-carousel-desktop {
+                display: none;
             }
 
             .hero-content {
-                max-width: 100%;
-                padding: 0;
                 width: 100%;
-                box-sizing: border-box;
-            }
-
-            .hero-image-carousel {
-                height: 300px;
-                min-height: 250px;
-                min-width: 0;
                 max-width: 100%;
-                width: 100%;
-                overflow: hidden;
-                margin: 0 auto;
-                flex: none;
             }
 
             .hero-cards-container {
-                padding: 0 20px 40px;
+                padding: 0 clamp(15px, 4vw, 15px) clamp(20px, 4vw, 20px);
             }
 
             .hero-header {
@@ -920,14 +927,16 @@
             }
 
             .hero-app-name {
-                font-size: 2.2em;
+                font-size: 2em;
                 text-align: center;
+                margin-bottom: 15px;
             }
 
             .hero-platform-desc {
-                font-size: 1.1em;
+                font-size: 1em;
                 text-align: center;
-                margin: 0 auto;
+                margin: 0 auto 20px;
+                line-height: 1.5;
             }
 
             .hero-ai-badge {
@@ -935,19 +944,40 @@
             }
 
             .hero-cards-grid {
+                display: grid;
                 grid-template-columns: 1fr;
-                gap: 20px;
-                margin-bottom: 40px;
-                padding: 0 10px;
+                gap: 15px;
+                margin-bottom: 20px;
+                padding: 0 5px;
                 width: 100%;
                 max-width: 100%;
             }
 
+            .hero-cards-grid .hero-card {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto 15px auto !important;
+                display: block !important;
+                float: none !important;
+            }
+
             .hero-card {
-                padding: 30px 20px;
-                width: 100%;
-                max-width: 100%;
-                box-sizing: border-box;
+                padding: 25px 18px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                margin: 0 0 15px 0 !important;
+                display: block !important;
+                float: none !important;
+                flex: none !important;
+                clear: both !important;
+                grid-column: 1 / -1 !important;
+                grid-row: auto !important;
+            }
+
+            /* Force all cards to stack in single column */
+            .hero-cards-grid>* {
+                grid-column: 1 !important;
             }
 
             .hero-card-icon {
@@ -1037,32 +1067,78 @@
 
         /* Extra Small Mobile Devices (below 480px) */
         @media (max-width: 480px) {
-            .hero-split-container {
-                padding: 30px 10px 20px;
-                gap: 20px;
+            .hero-section {
+                grid-template-areas:
+                    "content"
+                    "cards"
+                    "carousel";
             }
 
-            .hero-image-carousel {
-                height: 250px;
-                min-height: 200px;
+            .hero-split-container {
+                padding: 25px 10px 15px;
+                gap: 15px;
+            }
+
+            .hero-carousel-mobile {
+                height: 220px;
+                min-height: 180px;
                 border-radius: 15px;
+                padding: 0 10px 20px;
+            }
+
+            .hero-cards-container {
+                padding: 0 10px 15px;
             }
 
             .hero-cards-grid {
-                gap: 15px;
-                padding: 0 5px;
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 12px;
+                padding: 0;
+                margin-bottom: 15px;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .hero-cards-grid .hero-card {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                grid-column: 1 !important;
             }
 
             .hero-card {
-                padding: 25px 15px;
+                padding: 20px 15px !important;
+                grid-column: 1 !important;
+                width: 100% !important;
+            }
+
+            /* Force all cards to be in single column - additional safety */
+            .hero-cards-grid .hero-card:nth-child(1),
+            .hero-cards-grid .hero-card:nth-child(2),
+            .hero-cards-grid .hero-card:nth-child(3),
+            .hero-cards-grid .hero-card:nth-child(4) {
+                grid-column: 1 !important;
+                grid-row: auto !important;
+                width: 100% !important;
+                float: none !important;
+                display: block !important;
             }
 
             .hero-card-title {
-                font-size: 1.2em;
+                font-size: 1.15em;
             }
 
             .hero-card-desc {
-                font-size: 0.9em;
+                font-size: 0.85em;
+            }
+
+            .hero-app-name {
+                font-size: 1.7em;
+            }
+
+            .hero-platform-desc {
+                font-size: 0.95em;
             }
 
             .cards-container {
@@ -1084,10 +1160,6 @@
 
             h1 {
                 font-size: 2.2em;
-            }
-
-            .hero-app-name {
-                font-size: 1.8em;
             }
         }
 
@@ -1113,7 +1185,9 @@
                 max-width: 100%;
             }
 
-            img, video, iframe {
+            img,
+            video,
+            iframe {
                 max-width: 100%;
                 height: auto;
             }
@@ -1179,16 +1253,18 @@
 
         /* Main App Upload Area Styles */
         .main-app-container {
-            background: var(--primary-dark);
+            background: transparent;
             min-height: 100vh;
             width: 100%;
+            position: relative;
+            z-index: 10;
         }
 
         .main-content {
             max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
-            background: var(--primary-dark);
+            background: transparent;
             min-height: 100vh;
             position: relative;
             z-index: 10;
@@ -1247,11 +1323,19 @@
             overflow: hidden;
         }
 
-        /* Hero Section Styles - Split Layout (Text Left, Images Right) */
+        /* Hero Section Styles - Dynamic Responsive Grid */
         .hero-section {
             min-height: auto;
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-areas:
+                "content"
+                "cards"
+                "carousel";
+            background: transparent;
+            position: relative;
+            z-index: 10;
+            grid-template-rows: auto auto auto;
+            grid-template-columns: 1fr;
             padding: 0;
             position: relative;
             background: linear-gradient(135deg, #1a365d 0%, #2d4a7c 50%, #1a365d 100%);
@@ -1265,24 +1349,54 @@
         }
 
         @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
+        /* Hero Split Container - Dynamic Responsive Layout */
         .hero-split-container {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            min-height: auto;
+            grid-area: content;
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-areas: "text" "carousel";
+            gap: clamp(20px, 4vw, 60px);
+            padding: clamp(30px, 6vw, 100px) clamp(15px, 4vw, 40px);
             max-width: 1600px;
             margin: 0 auto;
-            padding: 100px 40px 60px;
-            position: relative;
-            z-index: 2;
-            gap: 60px;
             width: 100%;
             box-sizing: border-box;
-            overflow-x: hidden;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Desktop: Side by side layout */
+        @media (min-width: 769px) {
+            .hero-split-container {
+                grid-template-columns: 1fr 1.5fr;
+                grid-template-areas: "text carousel";
+                align-items: center;
+            }
+
+            .hero-section {
+                grid-template-areas:
+                    "content"
+                    "cards"
+                    "carousel";
+            }
+        }
+
+        /* Large desktop: More spacing */
+        @media (min-width: 1200px) {
+            .hero-split-container {
+                gap: clamp(40px, 5vw, 80px);
+            }
         }
 
         /* Floating Decorative Elements */
@@ -1320,48 +1434,102 @@
         }
 
         @keyframes float {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translate(0, 0) scale(1);
                 opacity: 0.4;
             }
+
             33% {
                 transform: translate(30px, -30px) scale(1.1);
                 opacity: 0.6;
             }
+
             66% {
                 transform: translate(-20px, 20px) scale(0.9);
                 opacity: 0.5;
             }
         }
 
+        /* Hero Content - Responsive */
         .hero-content {
-            flex: 1;
+            grid-area: text;
+            width: 100%;
+            max-width: 100%;
             padding: 0;
-            max-width: 45%;
             position: relative;
             z-index: 2;
+        }
+
+        @media (min-width: 769px) {
+            .hero-content {
+                max-width: 100%;
+            }
         }
 
         .hero-cards-container {
+            grid-area: cards;
             width: 100%;
             max-width: 1600px;
             margin: 0 auto;
-            padding: 0 40px 60px;
+            padding: 0 clamp(15px, 4vw, 40px) clamp(30px, 5vw, 60px);
             position: relative;
             z-index: 2;
         }
 
-        /* Hero Image Carousel - Right Side */
+        /* Hero Image Carousel - Responsive */
         .hero-image-carousel {
-            flex: 1.5;
-            min-width: 500px;
-            height: 600px;
-            max-height: 80vh;
             position: relative;
             overflow: hidden;
+            border-radius: clamp(15px, 3vw, 20px);
+            box-shadow: 0 clamp(10px, 2vw, 20px) clamp(30px, 5vw, 60px) rgba(0, 0, 0, 0.3);
             z-index: 1;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+        }
+
+        /* Desktop carousel - inside split container */
+        .hero-carousel-desktop {
+            grid-area: carousel;
+            height: clamp(400px, 50vh, 600px);
+            max-height: 80vh;
+            display: none;
+        }
+
+        /* Mobile carousel - separate grid area */
+        .hero-carousel-mobile {
+            grid-area: carousel;
+            height: clamp(220px, 40vh, 300px);
+            display: block;
+            margin: 0 auto;
+            width: calc(100% - clamp(20px, 5vw, 30px));
+            padding: 0 clamp(10px, 3vw, 15px);
+        }
+
+        /* Desktop: Show desktop carousel, hide mobile */
+        @media (min-width: 769px) {
+            .hero-carousel-desktop {
+                display: block;
+                min-width: 0;
+            }
+
+            .hero-carousel-mobile {
+                display: none;
+            }
+        }
+
+        /* Mobile: Hide desktop carousel */
+        @media (max-width: 768px) {
+            .hero-split-container .hero-carousel-desktop {
+                display: none !important;
+            }
+
+            .hero-section {
+                grid-template-areas:
+                    "content"
+                    "cards"
+                    "carousel";
+            }
         }
 
         .hero-image-slide {
@@ -1534,8 +1702,15 @@
         }
 
         @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         .hero-content {
@@ -1551,6 +1726,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -1660,27 +1836,50 @@
             margin: 0 auto;
         }
 
-        /* Hero Cards Grid - Enhanced Modern Design */
+        /* Hero Cards Grid - Dynamic Responsive Design */
         .hero-cards-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 30px;
-            margin-bottom: 60px;
+            grid-template-columns: 1fr;
+            gap: clamp(15px, 3vw, 30px);
+            margin-bottom: clamp(30px, 5vw, 60px);
             max-width: 100%;
             animation: fadeInUp 1.2s ease-out 0.2s both;
+            padding: 0 clamp(10px, 2vw, 20px);
+        }
+
+        /* Tablet: 2 columns */
+        @media (min-width: 600px) {
+            .hero-cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Desktop: 4 columns */
+        @media (min-width: 992px) {
+            .hero-cards-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* Large Desktop: Better spacing */
+        @media (min-width: 1400px) {
+            .hero-cards-grid {
+                gap: 40px;
+            }
         }
 
         .hero-card {
             background: rgba(255, 255, 255, 0.98);
             border: 2px solid rgba(212, 175, 55, 0.2);
-            border-radius: 24px;
-            padding: 45px 35px;
+            border-radius: clamp(16px, 3vw, 24px);
+            padding: clamp(25px, 4vw, 45px) clamp(18px, 3vw, 35px);
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(10px);
+            width: 100%;
         }
 
         .hero-card::before {
@@ -1794,14 +1993,18 @@
         }
 
         @keyframes floatShape {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translate(0, 0) rotate(0deg);
                 opacity: 0.3;
             }
+
             33% {
                 transform: translate(30px, -30px) rotate(120deg);
                 opacity: 0.5;
             }
+
             66% {
                 transform: translate(-20px, 20px) rotate(240deg);
                 opacity: 0.4;
@@ -1917,6 +2120,187 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             letter-spacing: 0.5px;
+        }
+
+        /* Hero Layout Structure - FORCED VERTICAL STACK */
+        #heroSection {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            position: relative;
+            overflow: hidden;
+            padding-top: 40px;
+        }
+
+        .hero-split-container {
+            display: flex !important;
+            flex-direction: column !important;
+            /* Vertical stack on all screens */
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 40px !important;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 40px !important;
+            width: 100% !important;
+            position: relative;
+            z-index: 2;
+            text-align: center !important;
+        }
+
+        .hero-content {
+            width: 100% !important;
+            max-width: 800px !important;
+            z-index: 2;
+            order: 1 !important;
+            /* Logo/Title First */
+        }
+
+        /* Show Desktop Carousel on ALL screens, resized */
+        .hero-image-carousel.hero-carousel-desktop {
+            display: block !important;
+            width: 100% !important;
+            max-width: 1000px !important;
+            height: 400px !important;
+            position: relative;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(212, 175, 55, 0.2);
+            order: 2 !important;
+            /* Carousel Second */
+            margin: 0 auto !important;
+        }
+
+        /* Hide Mobile Carousel completely to avoid duplication/layout issues */
+        .hero-carousel-mobile {
+            display: none !important;
+        }
+
+        .hero-image-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .hero-image-slide.active {
+            opacity: 1;
+        }
+
+        /* Hero Cards Grid */
+        .hero-cards-container {
+            padding: 0 20px 80px !important;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            width: 100% !important;
+            order: 3 !important;
+            /* Cards Third */
+        }
+
+        .hero-cards-grid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+            gap: 30px !important;
+            width: 100% !important;
+        }
+
+        .hero-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 300px;
+        }
+
+        .hero-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            border-color: #d4af37;
+        }
+
+        .hero-card-icon {
+            width: 50px;
+            height: 50px;
+            background: #1a365d;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: #d4af37;
+            margin-left: auto;
+            margin-right: auto;
+            /* Center icon */
+        }
+
+        .hero-card-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .hero-card-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #1a365d;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .hero-card-desc {
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .hero-card-arrow {
+            margin: 0 auto;
+            /* Center arrow */
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 1024px) {
+            .hero-image-carousel.hero-carousel-desktop {
+                height: 300px !important;
+            }
+
+            .hero-cards-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5em;
+            }
+
+            .hero-image-carousel.hero-carousel-desktop {
+                height: 250px !important;
+            }
+
+            .hero-cards-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .hero-split-container {
+                padding: 0 10px 30px !important;
+            }
         }
 
         .hero-title {
@@ -3588,71 +3972,264 @@
                 0 0 20px rgba(245, 158, 11, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
+
+        /* Smooth transition styles for navigation */
+        #mainAppContainer {
+            transition: opacity 0.8s ease-in, transform 0.8s ease-in;
+        }
+
+        #mainHeader {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+        }
+
+        #mainHeader h1,
+        #mainHeader .subtitle,
+        #mainHeader .tagline {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .hero-header-section {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .hero-header-section * {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        #cardsContainer {
+            transition: opacity 0.8s ease-in, transform 0.8s ease-in;
+        }
+
+        .hero-section {
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        /* Smooth card appearance */
+        .card {
+            transition: opacity 0.8s ease-in, transform 0.8s ease-in;
+        }
+
+        /* Smooth scroll behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Prevent flash of unstyled content during transitions */
+        body.transitioning {
+            overflow: hidden;
+        }
     </style>
     <script src="/static/js/table_manager.js"></script>
     <script>
-        // Check for workflow from landing page
-        window.addEventListener('DOMContentLoaded', function() {
+        // Check for workflow from landing page or showHero flag
+        window.addEventListener('DOMContentLoaded', function () {
+            // Check if we should show hero section (from landing page "Get Started")
+            const urlParams = new URLSearchParams(window.location.search);
+            const showHero = urlParams.get('showHero') === 'true';
+            
+            if (showHero) {
+                // Show hero section (main app home page with carousel, title, cards)
+                const heroSection = document.getElementById('heroSection');
+                const mainAppContainer = document.getElementById('mainAppContainer');
+                if (heroSection) {
+                    heroSection.style.display = 'flex';
+                }
+                if (mainAppContainer) {
+                    mainAppContainer.style.display = 'none';
+                }
+                // Initialize carousel if needed
+                setTimeout(() => {
+                    if (typeof initHeroImageCarousel === 'function') {
+                        initHeroImageCarousel();
+                    }
+                }, 100);
+                return;
+            }
+
+            // Check for workflow from landing page card click
             const workflowType = sessionStorage.getItem('workflowType');
             if (workflowType) {
                 sessionStorage.removeItem('workflowType');
-                // Wait a bit for page to fully load, then trigger workflow
+                // Wait a bit for page to fully load, then trigger workflow with smooth transition
                 setTimeout(() => {
-                    showMainApp(workflowType);
-                }, 300);
+                    showMainApp(workflowType, true);
+                }, 400);
             }
         });
 
-        // Main Application Navigation
-        function showMainApp(workflowType) {
-            // Hide hero section with animation
+        // Main Application Navigation - Smoothly scrolls to upload area
+        function showMainApp(workflowType, fromLanding = false) {
             const heroSection = document.getElementById('heroSection');
-            heroSection.style.opacity = '0';
-            heroSection.style.transform = 'translateY(-20px)';
+            const mainAppContainer = document.getElementById('mainAppContainer');
 
+            // Show main app container if hidden
+            if (mainAppContainer) {
+                mainAppContainer.style.display = 'block';
+            }
+
+            // Store current workflow type
+            window.currentWorkflowType = workflowType;
+
+            // Hide all workflow-specific cards initially
+            if (typeof hideAllWorkflowCards === 'function') {
+                hideAllWorkflowCards();
+            }
+
+            // Show relevant cards based on workflow type
+            if (typeof showWorkflowSpecificCards === 'function') {
+                showWorkflowSpecificCards(workflowType);
+            }
+
+            // Find the upload area - it's the first card in main-content
+            const mainContent = document.querySelector('.main-content');
+            const uploadSection = mainContent ? mainContent.querySelector('.card:first-child') : null;
+            const uploadArea = document.getElementById('uploadArea');
+            
+            let targetCard = null;
+            
+            // Determine which workflow-specific card to show
+            if (workflowType === 'quote-pricelist') {
+                targetCard = uploadSection;
+            } else if (workflowType === 'multi-budget') {
+                targetCard = document.getElementById('multiBudgetCard');
+            } else if (workflowType === 'presentation') {
+                targetCard = document.getElementById('presentationCard');
+            } else if (workflowType === 'mas') {
+                targetCard = document.getElementById('masCard');
+            }
+
+            // Show upload section (always visible)
+            if (uploadSection) {
+                uploadSection.style.display = 'block';
+            }
+
+            // Show workflow-specific card if it exists and is different from upload section
+            if (targetCard && targetCard !== uploadSection) {
+                targetCard.style.display = 'block';
+            }
+
+            // Smooth scroll to upload area (vertically down)
             setTimeout(() => {
-                heroSection.style.display = 'none';
-
-                // Show header and main container
-                document.getElementById('mainHeader').style.display = 'block';
-                document.getElementById('cardsContainer').style.display = 'grid';
-
-                // Trigger specific workflow if requested
-                if (workflowType) {
-                    // Find the card for this workflow and trigger its click
-                    const card = document.querySelector(`.feature-card[data-card="${workflowType}"]`);
-                    if (card) {
-                        // Scroll to cards container
-                        document.getElementById('cardsContainer').scrollIntoView({ behavior: 'smooth' });
-
-                        // Simulate click on the CTA button
-                        const ctaBtn = card.querySelector('.card-cta');
-                        if (ctaBtn) {
-                            // If the button calls showMainApp recursively, we need to handle the actual action
-                            // For now, let's just highlight the card
-                            card.style.boxShadow = '0 0 0 4px #d4af37';
-                            setTimeout(() => {
-                                card.style.boxShadow = '';
-                            }, 1000);
-
-                            // If it's a specific workflow that opens a modal or section, handle it here
-                            if (workflowType === 'quote-pricelist') {
-                                document.getElementById('uploadCard').style.display = 'block';
-                                document.getElementById('uploadCard').scrollIntoView({ behavior: 'smooth' });
-                            } else if (workflowType === 'multi-budget') {
-                                document.getElementById('multiBudgetCard').style.display = 'block';
-                                document.getElementById('multiBudgetCard').scrollIntoView({ behavior: 'smooth' });
-                            } else if (workflowType === 'presentation') {
-                                document.getElementById('presentationCard').style.display = 'block';
-                                document.getElementById('presentationCard').scrollIntoView({ behavior: 'smooth' });
-                            } else if (workflowType === 'mas') {
-                                document.getElementById('masCard').style.display = 'block';
-                                document.getElementById('masCard').scrollIntoView({ behavior: 'smooth' });
-                            }
-                        }
-                    }
+                if (uploadSection) {
+                    const uploadPosition = uploadSection.getBoundingClientRect().top + window.pageYOffset;
+                    smoothScrollTo(uploadPosition - 100, 1200); // Smooth, slower scroll with offset
                 }
-            }, 500);
+            }, 300);
+        }
+
+        // Navigate to specific workflow with smooth scroll - goes directly to upload area
+        function navigateToWorkflow(workflowType, fromLanding = false) {
+            // Store current workflow type
+            window.currentWorkflowType = workflowType;
+
+            // Hide all workflow-specific cards initially
+            if (typeof hideAllWorkflowCards === 'function') {
+                hideAllWorkflowCards();
+            }
+
+            // Show relevant cards based on workflow type
+            if (typeof showWorkflowSpecificCards === 'function') {
+                showWorkflowSpecificCards(workflowType);
+            }
+
+            // Find the upload area - it's the first card in main-content
+            const mainContent = document.querySelector('.main-content');
+            const uploadSection = mainContent ? mainContent.querySelector('.card:first-child') : null;
+            const uploadArea = document.getElementById('uploadArea');
+            
+            let targetCard = null;
+            
+            // Determine which workflow-specific card to show
+            if (workflowType === 'quote-pricelist') {
+                // Quote workflow uses the upload section
+                targetCard = uploadSection;
+            } else if (workflowType === 'multi-budget') {
+                targetCard = document.getElementById('multiBudgetCard');
+            } else if (workflowType === 'presentation') {
+                targetCard = document.getElementById('presentationCard');
+            } else if (workflowType === 'mas') {
+                targetCard = document.getElementById('masCard');
+            }
+
+            // Show upload section (always visible)
+            if (uploadSection) {
+                uploadSection.style.display = 'block';
+                uploadSection.style.opacity = '0';
+                uploadSection.style.transition = 'opacity 0.8s ease-in, transform 0.8s ease-in';
+                uploadSection.style.transform = 'translateY(20px)';
+            }
+
+            // Show workflow-specific card if it exists and is different from upload section
+            if (targetCard && targetCard !== uploadSection) {
+                targetCard.style.display = 'block';
+                targetCard.style.opacity = '0';
+                targetCard.style.transition = 'opacity 0.8s ease-in, transform 0.8s ease-in';
+                targetCard.style.transform = 'translateY(20px)';
+            }
+
+            // Fade in and scroll to upload area smoothly
+            setTimeout(() => {
+                if (uploadSection) {
+                    uploadSection.style.opacity = '1';
+                    uploadSection.style.transform = 'translateY(0)';
+                }
+                
+                if (targetCard && targetCard !== uploadSection) {
+                    targetCard.style.opacity = '1';
+                    targetCard.style.transform = 'translateY(0)';
+                }
+
+                // Smooth scroll to upload area (primary target)
+                setTimeout(() => {
+                    if (uploadSection) {
+                        const uploadPosition = uploadSection.getBoundingClientRect().top + window.pageYOffset;
+                        smoothScrollTo(uploadPosition - 100, 1200); // Smooth, slower scroll with offset
+                    }
+                }, 400);
+            }, 200);
+        }
+
+        // Custom smooth scroll function with configurable speed
+        function smoothScrollTo(targetPosition, duration = 1000) {
+            const startPosition = window.pageYOffset;
+            const distance = targetPosition - startPosition;
+            let startTime = null;
+
+            function animation(currentTime) {
+                if (startTime === null) startTime = currentTime;
+                const timeElapsed = currentTime - startTime;
+                const progress = Math.min(timeElapsed / duration, 1);
+
+                // Easing function for smooth deceleration
+                const ease = progress < 0.5 
+                    ? 2 * progress * progress 
+                    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+                window.scrollTo(0, startPosition + distance * ease);
+
+                if (timeElapsed < duration) {
+                    requestAnimationFrame(animation);
+                }
+            }
+
+            requestAnimationFrame(animation);
         }
     </script>
 </head>
@@ -3662,108 +4239,73 @@
     <div class="bg-particles" id="bgParticles"></div>
 
     <div class="container">
-        <!-- Hero Introduction Section -->
-        <section id="heroSection" class="hero-section">
+        <!-- Hero Introduction Section - Shows only cards, no header/carousel -->
+        <section id="heroSection" class="hero-section"
+            style="display: flex; flex-direction: column; align-items: center; padding-top: 20px;">
             <!-- Floating Decorative Elements -->
             <div class="floating-shape"></div>
             <div class="floating-shape"></div>
             <div class="floating-shape"></div>
 
-            <!-- Split Layout Container -->
-            <div class="hero-split-container">
-                <!-- Left Side: Logo and Text -->
-            <div class="hero-content">
-                <div class="hero-header">
-                        <div class="hero-ai-badge">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
-                            </svg>
-                            Powered by Advanced AI
-                        </div>
-                    <div class="company-logo">
-                        <img src="/static/images/al-shaya-logo-white@2x.png" alt="Alshaya Enterprises"
-                            class="logo-main">
-                    </div>
-                        <h2 class="hero-app-name">
-                            <span class="transform-text">Transform Your</span><br>
-                            <span class="workflow-text">BOQ Workflow</span>
-                        </h2>
-                        <p class="hero-platform-desc">Revolutionize your WorkFlow with AI-powered automation. Generate professional quotes, Alternative Offers, presentations, and Material approval sheets M.A.S in seconds—not hours.</p>
-                    </div>
-                </div>
+            <!-- 1. Header Section (Logo + Title) -->
+            <div class="hero-header-section"
+                style="text-align: center; margin-bottom: 40px; padding: 0 20px; width: 100%; max-width: 800px; z-index: 2;">
 
-                <!-- Right Side: Auto-Rotating Office Workspace Images -->
-                <div class="hero-image-carousel">
-                    <div class="hero-image-slide active" style="background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-                    <div class="hero-image-slide" style="background-image: url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-                    <div class="hero-image-slide" style="background-image: url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-                    <div class="hero-image-slide" style="background-image: url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
-                    <div class="hero-image-slide" style="background-image: url('https://images.unsplash.com/photo-1497215842964-222b430dc094?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');"></div>
+                <div class="hero-ai-badge" style="margin: 0 auto 20px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+                    </svg>
+                    Powered by Advanced AI
+                </div>
+                <h2 class="hero-app-name" style="margin-bottom: 20px;">
+                    <span class="transform-text">Transform Your</span><br>
+                    <span class="workflow-text">BOQ Workflow</span>
+                </h2>
+                <p class="hero-platform-desc" style="max-width: 800px; margin: 0 auto;">Revolutionize your WorkFlow with
+                    AI-powered automation. Generate professional quotes, Alternative Offers, presentations, and Material
+                    approval sheets M.A.S in seconds—not hours.</p>
+            </div>
+
+            <!-- 2. Logo Section (Above Carousel) -->
+            <div class="hero-logo-section"
+                style="width: 100%; max-width: 1000px; margin: 0 auto 40px; padding: 0 20px; z-index: 2; text-align: center;">
+                <img src="{{ url_for('static', filename='images/al-shaya-logo-white@2x.png') }}" 
+                     alt="AlShaya Enterprises" 
+                     style="max-width: 300px; height: auto; display: block; margin: 0 auto 20px;">
+                <h1 style="font-size: 3em; font-weight: 800; color: #ffffff; margin: 0; text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); letter-spacing: -1px;">
+                    Transform Your Workflow
+                </h1>
+            </div>
+
+            <!-- 3. Carousel Section -->
+            <div class="hero-carousel-section"
+                style="width: 100%; max-width: 1000px; margin: 0 auto 60px; padding: 0 20px; z-index: 2;">
+                <div class="hero-image-carousel"
+                    style="height: 400px; border-radius: 30px; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); border: 2px solid rgba(212, 175, 55, 0.2);">
+                    <div class="hero-image-slide active"
+                        style="background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');">
+                    </div>
+                    <div class="hero-image-slide"
+                        style="background-image: url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');">
+                    </div>
+                    <div class="hero-image-slide"
+                        style="background-image: url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');">
+                    </div>
+                    <div class="hero-image-slide"
+                        style="background-image: url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');">
+                    </div>
+                    <div class="hero-image-slide"
+                        style="background-image: url('https://images.unsplash.com/photo-1497215842964-222b430dc094?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');">
+                    </div>
                 </div>
             </div>
 
-            <!-- Main Workflow Cards - Below Split Layout -->
-            <div class="hero-cards-container">
-                <div class="hero-cards-grid">
-                    <!-- Card 1: Quote with Price List -->
-                    <div class="hero-card" onclick="showMainApp('quote-pricelist')">
-                        <div class="hero-card-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="5" width="20" height="14" rx="2" />
-                                <line x1="2" y1="10" x2="22" y2="10" />
-                            </svg>
-                        </div>
-                        <h3 class="hero-card-title">Quote with Price List</h3>
-                        <p class="hero-card-desc">Upload BOQ with prices to generate professional quotations instantly</p>
-                        <div class="hero-card-arrow">→</div>
-                    </div>
+            <!-- 4. Cards Section -->
+            <div class="hero-cards-section"
+                style="width: 100%; max-width: 1400px; margin: 0 auto; padding: 40px 20px 80px; z-index: 2;">
 
-                    <!-- Card 2: Multi-Budget Offers -->
-                    <div class="hero-card" onclick="showMainApp('multi-budget')">
-                        <div class="hero-card-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6v6l4 2" />
-                            </svg>
-                        </div>
-                        <h3 class="hero-card-title">Multi-Budget Offers</h3>
-                        <p class="hero-card-desc">AI generates three budget tiers from your BOQ automatically</p>
-                        <div class="hero-card-arrow">→</div>
-                    </div>
-
-                    <!-- Card 3: Presentation Generator -->
-                    <div class="hero-card" onclick="showMainApp('presentation')">
-                        <div class="hero-card-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="3" width="20" height="14" rx="2" />
-                                <line x1="8" y1="21" x2="16" y2="21" />
-                                <line x1="12" y1="17" x2="12" y2="21" />
-                            </svg>
-                        </div>
-                        <h3 class="hero-card-title">Presentation Generator</h3>
-                        <p class="hero-card-desc">Create stunning visual presentations with images and pricing</p>
-                        <div class="hero-card-arrow">→</div>
-                    </div>
-
-                    <!-- Card 4: MAS Generator -->
-                    <div class="hero-card" onclick="showMainApp('mas')">
-                        <div class="hero-card-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                                <polyline points="10 9 9 9 8 9" />
-                            </svg>
-                        </div>
-                        <h3 class="hero-card-title">MAS Generator</h3>
-                        <p class="hero-card-desc">Generate Material Approval Sheets for streamlined workflows</p>
-                        <div class="hero-card-arrow">→</div>
-                    </div>
-                </div>
-
-                <!-- Stats Section -->
-                <div class="hero-stats">
+                <!-- Stats Section (Moved Above Cards) - Hidden -->
+                <div class="hero-stats" style="display: none; margin-bottom: 60px;">
                     <div class="stat-item">
                         <div class="stat-number">AI</div>
                         <div class="stat-label">Powered Processing</div>
@@ -3777,6 +4319,87 @@
                         <div class="stat-label">Automated Workflow</div>
                     </div>
                 </div>
+
+                <div class="hero-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 35px;">
+                    <!-- Card 1: Quote with Price List -->
+                    <div class="feature-card" data-card="quote-pricelist" onclick="showMainApp('quote-pricelist')">
+                        <span class="card-badge">Popular</span>
+                        <span class="card-icon">💰</span>
+                        <h2 class="card-title">Quote with Price List</h2>
+                        <p class="card-description">
+                            Upload your BOQ with price list to generate professional quotations instantly with accurate pricing
+                            and margins.
+                        </p>
+                        <ul class="card-features">
+                            <li>Upload BOQ + Price List</li>
+                            <li>Auto-extract quantities & prices</li>
+                            <li>Apply margins & factors</li>
+                            <li>Generate PDF/Excel quotes</li>
+                        </ul>
+                        <button class="card-cta">
+                            Start Quoting →
+                        </button>
+                    </div>
+
+                    <!-- Card 2: Multi-Budget Offers -->
+                    <div class="feature-card" data-card="multi-budget" onclick="showMainApp('multi-budget')">
+                        <span class="card-badge">AI-Powered</span>
+                        <span class="card-icon">🎯</span>
+                        <h2 class="card-title">Multi-Budget Offers</h2>
+                        <p class="card-description">
+                            Upload BOQ only (no prices) and let AI generate three budget tiers: Budgetary, Mid-Range, and
+                            High-End options.
+                        </p>
+                        <ul class="card-features">
+                            <li>Upload BOQ without prices</li>
+                            <li>AI-generated price estimates</li>
+                            <li>3 budget tier options</li>
+                            <li>Comparative analysis</li>
+                        </ul>
+                        <button class="card-cta">
+                            Generate Options →
+                        </button>
+                    </div>
+
+                    <!-- Card 3: Presentation Generator -->
+                    <div class="feature-card" data-card="presentation" onclick="showMainApp('presentation')">
+                        <span class="card-badge">Visual</span>
+                        <span class="card-icon">🎨</span>
+                        <h2 class="card-title">Presentation Generator</h2>
+                        <p class="card-description">
+                            Create stunning visual presentations from your BOQ with images and pricing in professional
+                            PowerPoint format.
+                        </p>
+                        <ul class="card-features">
+                            <li>Upload BOQ with images</li>
+                            <li>Auto-generate slides</li>
+                            <li>Professional templates</li>
+                            <li>Export to PPTX/PDF</li>
+                        </ul>
+                        <button class="card-cta">
+                            Create Presentation →
+                        </button>
+                    </div>
+
+                    <!-- Card 4: MAS Generator -->
+                    <div class="feature-card" data-card="mas" onclick="showMainApp('mas')">
+                        <span class="card-badge">Essential</span>
+                        <span class="card-icon">📋</span>
+                        <h2 class="card-title">MAS Generator</h2>
+                        <p class="card-description">
+                            Generate Material Approval Sheets automatically from your BOQ for streamlined approval workflows.
+                        </p>
+                        <ul class="card-features">
+                            <li>Upload BOQ data</li>
+                            <li>Extract material specs</li>
+                            <li>Generate approval sheets</li>
+                            <li>Export in multiple formats</li>
+                        </ul>
+                        <button class="card-cta">
+                            Generate MAS →
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -3785,7 +4408,8 @@
             <div class="workflow-container">
                 <div class="workflow-title">
                     <h2>Automated Workflow</h2>
-                    <p class="workflow-subtitle">Our AI-powered system streamlines your entire BOQ management process, from upload to final delivery</p>
+                    <p class="workflow-subtitle">Our AI-powered system streamlines your entire BOQ management process,
+                        from upload to final delivery</p>
                 </div>
 
                 <div class="workflow-steps">
@@ -3857,12 +4481,7 @@
             </div>
         </section>
 
-        <!-- Header -->
-        <header id="mainHeader" style="display: none;">
-            <h1><span class="logo-emoji">⚡</span> Alshaya Enterprises Co-Estimate</h1>
-            <p class="subtitle">AI-Powered BOQ Processing Platform</p>
-            <p class="tagline">Transform Your BOQ Workflows with Intelligent Automation</p>
-        </header>
+        <!-- Header - Removed -->
 
         <!-- Main Cards Grid -->
         <div class="cards-container" id="cardsContainer" style="display: none;">
@@ -3951,9 +4570,14 @@
     <div id="mainAppContainer" class="main-app-container" style="display: none;">
         <!-- Top Navigation Bar with Logo -->
         <div class="app-nav-bar">
-            <button class="nav-home-btn" onclick="returnToHome()">
-                ← Return to Home
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="nav-home-btn" onclick="returnToHome()">
+                    ← Return to Home
+                </button>
+                <button class="nav-home-btn" onclick="goToLandingPage()" style="background: #3b82f6; color: white;">
+                    🏠 Home
+                </button>
+            </div>
             <img src="/static/images/al-shaya-logo-white@2x.png" alt="Alshaya Enterprises" class="app-logo">
         </div>
 
@@ -5053,11 +5677,9 @@
         function openWorkflow(cardType) {
             currentWorkflow = cardType;
             const card = document.querySelector(`[data-card="${cardType}"]`);
-            const header = document.getElementById('mainHeader');
             const cardsContainer = document.getElementById('cardsContainer');
 
-            // Hide main content
-            header.style.display = 'none';
+            // Hide main content (header removed)
             cardsContainer.style.display = 'none';
 
             // Expand card
@@ -5073,10 +5695,9 @@
                 expandedCard.querySelector('.workflow-container').classList.remove('active');
             }
 
-            const header = document.getElementById('mainHeader');
             const cardsContainer = document.getElementById('cardsContainer');
 
-            header.style.display = 'block';
+            // Header removed - no need to show
             cardsContainer.style.display = 'grid';
             currentWorkflow = null;
         }
@@ -5084,7 +5705,6 @@
         // Return to hero section
         function returnToHome() {
             const heroSection = document.getElementById('heroSection');
-            const mainHeader = document.getElementById('mainHeader');
             const cardsContainer = document.getElementById('cardsContainer');
             const mainAppContainer = document.getElementById('mainAppContainer');
 
@@ -5098,19 +5718,51 @@
                 }
             }
 
-            // Hide main app
-            mainAppContainer.style.display = 'none';
-            mainHeader.style.display = 'none';
-            cardsContainer.style.display = 'none';
+            // Hide all workflow-specific cards
+            if (typeof hideAllWorkflowCards === 'function') {
+                hideAllWorkflowCards();
+            }
 
-            // Show hero section
-            heroSection.style.display = 'flex';
+            // Hide main app container
+            if (mainAppContainer) {
+                mainAppContainer.style.display = 'none';
+                mainAppContainer.style.opacity = '0';
+            }
 
-            // Scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Hide cards container (if it exists separately)
+            if (cardsContainer) {
+                cardsContainer.style.display = 'none';
+            }
+
+            // Show hero section with cards (this is the main app page with cards)
+            if (heroSection) {
+                // Ensure hero section is visible
+                heroSection.style.display = 'flex';
+                heroSection.style.visibility = 'visible';
+                
+                // Fade in with smooth transition
+                heroSection.style.opacity = '0';
+                heroSection.style.transition = 'opacity 0.6s ease-in';
+                
+                // Force reflow and then fade in
+                heroSection.offsetHeight; // Force reflow
+                setTimeout(() => {
+                    heroSection.style.opacity = '1';
+                }, 10);
+            }
+
+            // Scroll to top smoothly after a brief delay
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
 
             // Reset workflow state
             window.currentWorkflowType = null;
+        }
+
+        // Navigate to landing page
+        function goToLandingPage() {
+            window.location.href = '/landing';
         }
 
         // File upload handling with backend integration
@@ -5120,7 +5772,7 @@
                 return;
             }
             input.dataset.uploadListenerAdded = 'true';
-            
+
             input.addEventListener('change', async function (e) {
                 const fileInfo = document.getElementById('fileinfo-' + this.id.replace('file-', ''));
                 const files = this.files;
@@ -5208,13 +5860,13 @@
                 // Use upload-and-extract endpoint with extended timeout for large files
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes timeout
-                
+
                 const response = await fetch('/upload-and-extract', {
                     method: 'POST',
                     body: formData,
                     signal: controller.signal
                 });
-                
+
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
@@ -5306,7 +5958,7 @@
                         body: JSON.stringify(settings),
                         signal: controller.signal
                     });
-                    
+
                     clearTimeout(timeoutId);
 
                     const result = await response.json();
@@ -5326,8 +5978,8 @@
                         if (stitchResult.success) {
                             // Don't display in workflow results - table is already shown in extracted tables section
                             // Just show a success message
-                            displayResults(cardType, { 
-                                success: true, 
+                            displayResults(cardType, {
+                                success: true,
                                 message: 'Tables extracted and stitched successfully',
                                 row_count: stitchResult.row_count,
                                 page_count: stitchResult.page_count,
@@ -5359,15 +6011,15 @@
             `;
 
             // Always show success message - table is displayed in extracted tables section
-                html += `
+            html += `
                 <div style="padding: 20px; background: #f0fdf4; border-radius: 10px; border-left: 4px solid #10b981;">
                     <strong style="color: #059669; font-size: 1.2em;">
                         ${data.stitched_html ? '📊 Table Stitched Successfully!' : '✅ Processing Complete!'}
                     </strong>
                     <p style="color: #475569; margin-top: 10px; line-height: 1.8;">
-                        ${data.stitched_html ? 'The table has been extracted and stitched from all pages. Scroll down to view and edit the full table.' : 
-                          data.extractions ? `Your BOQ has been successfully processed. Processed ${data.extractions.length} file(s).` : 
-                          'Your data has been successfully processed.'}
+                        ${data.stitched_html ? 'The table has been extracted and stitched from all pages. Scroll down to view and edit the full table.' :
+                    data.extractions ? `Your BOQ has been successfully processed. Processed ${data.extractions.length} file(s).` :
+                        'Your data has been successfully processed.'}
                     </p>
                     ${data.row_count ? `
                         <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px;">
@@ -5506,37 +6158,9 @@
             }
         }
 
-        // Show main application (called when cards are clicked)
-        function showMainApp(workflowType) {
-            const heroSection = document.getElementById('heroSection');
-            const mainHeader = document.getElementById('mainHeader');
-            const cardsContainer = document.getElementById('cardsContainer');
-            const mainAppContainer = document.getElementById('mainAppContainer');
-
-            // Hide hero if visible
-            if (heroSection.style.display !== 'none') {
-                heroSection.style.display = 'none';
-            }
-
-            mainHeader.style.display = 'none';
-            cardsContainer.style.display = 'none';
-            mainAppContainer.style.display = 'block';
-
-            // Store current workflow type
-            window.currentWorkflowType = workflowType;
-
-            // Hide all workflow-specific cards initially
-            hideAllWorkflowCards();
-
-            // Show relevant cards based on workflow type
-            showWorkflowSpecificCards(workflowType);
-
-            // Scroll to top
-            window.scrollTo(0, 0);
-
-            // Initialize costing sliders
-            setTimeout(initializeCostingSliders, 200);
-        }
+        // Show main application (called when cards are clicked from within app)
+        // This function is overridden by the one above, but keeping for compatibility
+        // The main showMainApp function above handles both cases now
 
         // Main app upload and file management
         const uploadArea = document.getElementById('uploadArea');
@@ -5636,7 +6260,7 @@
                 // Extended timeout for large files
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes
-                
+
                 const response = await fetch('/upload-and-extract', {
                     method: 'POST',
                     body: formData,
@@ -5936,21 +6560,21 @@
         // Global function to remove ALL error messages
         function removeAllErrorMessages() {
             console.log('🧹 Removing all error messages...');
-            
+
             // Find and remove ALL error elements across the entire page
             const errorSelectors = [
                 'div[style*="color: #dc3545"]',
-                'div[style*="color:#dc3545"]', 
+                'div[style*="color:#dc3545"]',
                 'div[style*="color: red"]',
                 'div[style*="color:red"]',
                 '.alert-danger',
                 '.error-message'
             ];
-            
+
             errorSelectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(element => {
                     const text = element.textContent.toLowerCase();
-                    if (text.includes('error') || text.includes('failed') || 
+                    if (text.includes('error') || text.includes('failed') ||
                         text.includes('file not found') || text.includes('session') ||
                         text.includes('stitching')) {
                         console.log('Removing error:', text.substring(0, 50));
@@ -5958,7 +6582,7 @@
                     }
                 });
             });
-            
+
             // Also check for pink/red background error boxes
             document.querySelectorAll('div').forEach(div => {
                 const bgColor = window.getComputedStyle(div).backgroundColor;
@@ -6391,7 +7015,7 @@
                         }, 100);
 
                         showAlert('Tables stitched successfully! You can now edit cells, drag images, and manage rows.', 'success');
-                        
+
                         // Remove ALL error messages after successful stitching - multiple times to ensure cleanup
                         setTimeout(() => removeAllErrorMessages(), 100);
                         setTimeout(() => removeAllErrorMessages(), 500);
@@ -6399,14 +7023,14 @@
                     } else {
                         // Only show error if it's a real failure (not a session cleanup issue)
                         if (!result.error?.includes('File not found') && !result.error?.includes('session')) {
-                        stitchResult.innerHTML = `<div style="color: #dc3545; padding: 10px;">Error: ${result.error || 'Failed to stitch tables'}</div>`;
+                            stitchResult.innerHTML = `<div style="color: #dc3545; padding: 10px;">Error: ${result.error || 'Failed to stitch tables'}</div>`;
                         }
                     }
                 } catch (error) {
                     console.error('Error stitching tables:', error);
                     // Only show error if it's a real failure (not a session cleanup issue)
                     if (!error.message?.includes('File not found') && !error.message?.includes('session')) {
-                    stitchResult.innerHTML = `<div style="color: #dc3545; padding: 10px;">Error: ${error.message}</div>`;
+                        stitchResult.innerHTML = `<div style="color: #dc3545; padding: 10px;">Error: ${error.message}</div>`;
                     }
                 }
             }
@@ -8585,57 +9209,62 @@
             setTimeout(initializeCostingSliders, 500);
             setTimeout(initializeCostingSliders, 1000);
 
-            // Always start with landing page (hero section)
+            // Check URL params to determine what to show
+            const urlParams = new URLSearchParams(window.location.search);
+            const showHero = urlParams.get('showHero') === 'true';
+            
             const heroSection = document.getElementById('heroSection');
             const mainAppContainer = document.getElementById('mainAppContainer');
-            const mainHeader = document.getElementById('mainHeader');
             const cardsContainer = document.getElementById('cardsContainer');
 
-            // Ensure landing page is visible on load
-            if (heroSection) {
+            // Only show hero section if coming from landing page with showHero=true
+            if (showHero && heroSection) {
                 heroSection.style.display = 'flex';
                 heroSection.style.opacity = '1';
                 heroSection.style.transform = 'translateY(0)';
+            } else if (heroSection) {
+                // Hide hero section by default
+                heroSection.style.display = 'none';
             }
 
-            // Ensure main app sections are hidden on load
-            if (mainAppContainer) {
+            // Ensure main app sections are hidden on load (unless workflow is triggered)
+            if (mainAppContainer && !sessionStorage.getItem('workflowType')) {
                 mainAppContainer.style.display = 'none';
-            }
-            if (mainHeader) {
-                mainHeader.style.display = 'none';
             }
             if (cardsContainer) {
                 cardsContainer.style.display = 'none';
             }
 
-            console.log('Landing page displayed by default');
-
             // Initialize Hero Image Carousel
             function initHeroImageCarousel() {
-                const slides = document.querySelectorAll('.hero-image-slide');
-                if (slides.length === 0) return;
+                const carousels = document.querySelectorAll('.hero-image-carousel');
+                if (carousels.length === 0) return;
 
-                let currentSlide = 0;
-                const totalSlides = slides.length;
+                carousels.forEach(carousel => {
+                    const slides = carousel.querySelectorAll('.hero-image-slide');
+                    if (slides.length === 0) return;
 
-                function showSlide(index) {
-                    slides.forEach((slide, i) => {
-                        slide.classList.remove('active');
-                        if (i === index) {
-                            slide.classList.add('active');
-                        }
-                    });
-                }
+                    let currentSlide = 0;
+                    const totalSlides = slides.length;
 
-                function nextSlide() {
-                    currentSlide = (currentSlide + 1) % totalSlides;
-                    showSlide(currentSlide);
-                }
+                    function showSlide(index) {
+                        slides.forEach((slide, i) => {
+                            slide.classList.remove('active');
+                            if (i === index) {
+                                slide.classList.add('active');
+                            }
+                        });
+                    }
 
-                // Start carousel - change image every 5 seconds
-                showSlide(0);
-                setInterval(nextSlide, 5000);
+                    function nextSlide() {
+                        currentSlide = (currentSlide + 1) % totalSlides;
+                        showSlide(currentSlide);
+                    }
+
+                    // Start carousel - change image every 5 seconds
+                    showSlide(0);
+                    setInterval(nextSlide, 5000);
+                });
             }
 
             // Initialize carousel when hero section is visible
@@ -8730,6 +9359,13 @@
                     style="margin: 20px auto; width: 50px; height: 50px; border: 4px solid rgba(212, 175, 55, 0.3); border-top: 4px solid #d4af37; border-radius: 50%; animation: spin 1s linear infinite;">
                 </div>
             </div>
+        </div>
+
+        <!-- Footer with Home Button -->
+        <div class="main-app-footer" style="text-align: center; padding: 40px 20px; margin-top: 60px;">
+            <button class="nav-home-btn" onclick="goToLandingPage()" style="background: #3b82f6; color: white; font-size: 1.1em; padding: 14px 32px;">
+                🏠 Home
+            </button>
         </div>
     </div>
 
@@ -9561,13 +10197,13 @@
             const website = document.getElementById('brandWebsiteInput').value.trim();
             const country = document.getElementById('brandCountryInput').value.trim() || 'Unknown';
             const tier = document.getElementById('brandTierInput').value;
-            
+
             // Get scraping method and crawl limit
-            const scrapingMethod = document.getElementById('scrapingMethodInput') ? 
+            const scrapingMethod = document.getElementById('scrapingMethodInput') ?
                 document.getElementById('scrapingMethodInput').value : 'requests';
-            const crawlLimit = document.getElementById('crawlLimitInput') ? 
+            const crawlLimit = document.getElementById('crawlLimitInput') ?
                 parseInt(document.getElementById('crawlLimitInput').value) : 50;
-            
+
             console.log('🔍 Scraping Method Selected:', scrapingMethod);
             console.log('📊 Crawl Limit:', crawlLimit);
 

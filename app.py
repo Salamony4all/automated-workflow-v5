@@ -361,18 +361,18 @@ def upload_and_extract():
                     pass
         
         if not is_duplicate:
-        file_info = {
-            'id': str(uuid.uuid4()),
-            'original_name': filename,
-            'unique_name': unique_filename,
-            'filepath': filepath,
-            'upload_time': datetime.now().isoformat(),
-            'status': 'uploaded'
-        }
-        uploaded_files.append(file_info)
-        session['uploaded_files'] = uploaded_files
-        session.modified = True
-        logger.info(f"File uploaded: {filename}, Session ID: {session_id}, Total files in session: {len(uploaded_files)}")
+            file_info = {
+                'id': str(uuid.uuid4()),
+                'original_name': filename,
+                'unique_name': unique_filename,
+                'filepath': filepath,
+                'upload_time': datetime.now().isoformat(),
+                'status': 'uploaded'
+            }
+            uploaded_files.append(file_info)
+            session['uploaded_files'] = uploaded_files
+            session.modified = True
+            logger.info(f"File uploaded: {filename}, Session ID: {session_id}, Total files in session: {len(uploaded_files)}")
         else:
             logger.info(f"Duplicate upload handled for: {filename}, Session ID: {session_id}")
         
