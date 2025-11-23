@@ -1121,7 +1121,10 @@ class UniversalBrandScraper:
         """
         try:
             from selenium.webdriver.common.action_chains import ActionChains
-            from selenium.webdriver.common.by import By
+            # Use module-level By import instead of local import
+            if By is None:
+                logger.warning("Selenium By is not available")
+                return {}
             
             logger.info("Extracting subcategories from dynamic menus...")
             
