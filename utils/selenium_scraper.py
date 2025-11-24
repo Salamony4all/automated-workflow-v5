@@ -7,11 +7,15 @@ import logging
 import time
 import json
 import re
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+# Import By for type hints only
+if TYPE_CHECKING:
+    from selenium.webdriver.common.by import By
 
 try:
     from selenium import webdriver
@@ -24,6 +28,13 @@ try:
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
+    # Create a dummy By class for type hints when Selenium is not available
+    class By:
+        CSS_SELECTOR = "css selector"
+        XPATH = "xpath"
+        TAG_NAME = "tag name"
+        ID = "id"
+        CLASS_NAME = "class name"
     logger.warning("Selenium not installed. Install with: pip install selenium webdriver-manager")
 
 try:
