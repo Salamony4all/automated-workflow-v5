@@ -80,16 +80,26 @@ class SeleniumScraper:
             if WEBDRIVER_MANAGER_AVAILABLE:
                 try:
                     service = Service(ChromeDriverManager().install())
+                except (AttributeError, TypeError) as e:
+                    # Chrome not found or version detection failed
+                    error_msg = str(e)
+                    if "'NoneType' object has no attribute 'split'" in error_msg or "NoneType" in error_msg:
+                        logger.error("Chrome browser not found. Selenium requires Chrome to be installed.")
+                        raise ImportError("Chrome browser not found. Please use requests-based scraping instead. Install Chrome or use scraping_method='requests'")
+                    raise
                 except Exception as e:
                     logger.warning(f"ChromeDriverManager failed: {e}, trying without version detection")
                     # Try to use ChromeDriverManager without version detection
                     try:
                         from webdriver_manager.chrome import ChromeDriverManager
-                        from webdriver_manager.core.os_manager import ChromeType
                         manager = ChromeDriverManager()
-                        # Force a specific version or skip version detection
+                        # Try to install with a specific version or latest
                         service = Service(manager.install())
-                    except Exception as e2:
+                    except (AttributeError, TypeError) as e2:
+                        error_msg = str(e2)
+                        if "'NoneType' object has no attribute 'split'" in error_msg or "NoneType" in error_msg:
+                            logger.error("Chrome browser not found. Selenium requires Chrome to be installed.")
+                            raise ImportError("Chrome browser not found. Please use requests-based scraping instead. Install Chrome or use scraping_method='requests'")
                         logger.error(f"Failed to initialize ChromeDriverManager: {e2}")
                         raise ImportError(f"Cannot initialize Chrome WebDriver: {e2}")
             else:

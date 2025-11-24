@@ -108,18 +108,53 @@ class ItalianFurnitureScraper:
             'category_tree': {}
         }
         
-        scraper = SeleniumScraper(headless=True, timeout=60)
+        scraper = None
+        use_selenium = True
+        soup = None
         
         try:
-            # Try English version first for English content
-            logger.info(f"Trying English URL: {english_website}")
-            soup = scraper.get_page(english_website, wait_for_selector='body', wait_time=10)
+            scraper = SeleniumScraper(headless=True, timeout=60)
+        except (ImportError, Exception) as e:
+            error_msg = str(e)
+            if "Chrome browser not found" in error_msg or "Cannot initialize Chrome" in error_msg:
+                logger.warning(f"Selenium not available (Chrome not found): {e}")
+                logger.info("Falling back to requests-based scraping for Italian furniture site")
+                use_selenium = False
+                # Fall back to requests-based scraping
+                import requests
+                
+                try:
+                    response = requests.get(english_website, headers=self.base_headers, timeout=30)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    if not soup:
+                        response = requests.get(website, headers=self.base_headers, timeout=30)
+                        response.raise_for_status()
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        english_website = website
+                        website = english_website
+                except Exception as req_e:
+                    logger.error(f"Requests-based scraping also failed: {req_e}")
+                    return scraped_data
+            else:
+                raise
+        
+        try:
+            if use_selenium and scraper:
+                # Try English version first for English content
+                logger.info(f"Trying English URL: {english_website}")
+                soup = scraper.get_page(english_website, wait_for_selector='body', wait_time=10)
             
             if not soup:
-                logger.warning("Failed to load English page, trying Italian...")
-                logger.info(f"Loading Italian URL: {website}")
-                soup = scraper.get_page(website, wait_for_selector='body', wait_time=10)
-                english_website = website  # Use Italian URL for remaining requests
+                if use_selenium and scraper:
+                    logger.warning("Failed to load English page, trying Italian...")
+                    logger.info(f"Loading Italian URL: {website}")
+                    soup = scraper.get_page(website, wait_for_selector='body', wait_time=10)
+                    english_website = website  # Use Italian URL for remaining requests
+                else:
+                    # Already tried requests, no soup means failure
+                    logger.error("Failed to load page with requests")
+                    return scraped_data
             else:
                 logger.info("✓ Successfully loaded English version")
                 website = english_website  # Use English URL for remaining requests
@@ -128,20 +163,21 @@ class ItalianFurnitureScraper:
                 logger.error("Failed to load both English and Italian pages")
                 return scraped_data
             
-            # Enhanced scrolling to load ALL content (especially bottom categories)
-            logger.info("Scrolling to load all categories...")
-            
-            # Multiple scrolls to ensure everything loads
-            for i in range(3):
-                scraper.scroll_to_bottom(pause_time=2.0)
-                time.sleep(1.5)
-                logger.debug(f"  Scroll pass {i+1}/3 completed")
-            
-            # Final wait for any lazy-loaded content
-            time.sleep(2)
-            
-            # Refresh soup after scrolling
-            soup = BeautifulSoup(scraper.driver.page_source, 'html.parser')
+            if use_selenium and scraper:
+                # Enhanced scrolling to load ALL content (especially bottom categories)
+                logger.info("Scrolling to load all categories...")
+                
+                # Multiple scrolls to ensure everything loads
+                for i in range(3):
+                    scraper.scroll_to_bottom(pause_time=2.0)
+                    time.sleep(1.5)
+                    logger.debug(f"  Scroll pass {i+1}/3 completed")
+                
+                # Final wait for any lazy-loaded content
+                time.sleep(2)
+                
+                # Refresh soup after scrolling
+                soup = BeautifulSoup(scraper.driver.page_source, 'html.parser')
             
             # Find category links (use the website URL that actually worked)
             category_links = self._find_category_links(soup, website)
@@ -156,7 +192,32 @@ class ItalianFurnitureScraper:
                 logger.info(f"Scraping category: {cat_name}")
                 
                 try:
-                    category_products = self._scrape_category(scraper, cat_url, cat_name, brand_name)
+                    if use_selenium and scraper:
+                        category_products = self._scrape_category(scraper, cat_url, cat_name, brand_name)
+                    else:
+                        # Use requests-based scraping for category
+                        import requests
+                        response = requests.get(cat_url, headers=self.base_headers, timeout=30)
+                        response.raise_for_status()
+                        cat_soup = BeautifulSoup(response.content, 'html.parser')
+                        # Find product links
+                        product_links = self._find_product_links(cat_soup, cat_url)
+                        logger.info(f"  Found {len(product_links)} product links in {cat_name}")
+                        
+                        # Scrape each product
+                        category_products = []
+                        for product_url in product_links[:20]:  # Limit to 20 products per category
+                            try:
+                                prod_response = requests.get(product_url, headers=self.base_headers, timeout=30)
+                                prod_response.raise_for_status()
+                                prod_soup = BeautifulSoup(prod_response.content, 'html.parser')
+                                product_data = self._scrape_product_page_requests(prod_soup, product_url, cat_name, brand_name)
+                                if product_data:
+                                    category_products.append(product_data)
+                                time.sleep(self.delay)
+                            except Exception as e:
+                                logger.debug(f"Error scraping product {product_url}: {e}")
+                                continue
                     
                     if category_products:
                         # Add to collections
@@ -199,7 +260,11 @@ class ItalianFurnitureScraper:
             logger.exception("Full traceback:")
         
         finally:
-            scraper.close()
+            if scraper:
+                try:
+                    scraper.close()
+                except:
+                    pass
         
         return scraped_data
     
@@ -512,6 +577,112 @@ class ItalianFurnitureScraper:
                 'price': None,
                 'price_range': 'Contact for price',
                 'features': [],
+                'specifications': {}
+            }
+        
+        except Exception as e:
+            logger.debug(f"Error extracting product data from {product_url}: {e}")
+            return None
+    
+    def _scrape_product_page_requests(self, soup: BeautifulSoup, product_url: str, category: str, brand_name: str) -> Optional[Dict]:
+        """Scrape individual product page using requests (no Selenium)"""
+        try:
+            if not soup:
+                return None
+            
+            # Extract product name
+            name = None
+            name_elem = soup.find(['h1', 'h2'], class_=re.compile(r'product|title|name', re.I))
+            if not name_elem:
+                name_elem = soup.find(['h1', 'h2'])
+            if name_elem:
+                name = name_elem.get_text(strip=True)
+            
+            # Extract product ID from URL
+            product_id = None
+            id_match = re.search(r'/(\d+)/?$', product_url)
+            if id_match:
+                product_id = id_match.group(1)
+            else:
+                # Try to extract from slug
+                slug_match = re.search(r'/([^/]+)/?$', product_url)
+                if slug_match:
+                    product_id = slug_match.group(1)
+            
+            # Extract image - Same strategies as Selenium version
+            image_url = None
+            img = soup.find('img', class_=re.compile(r'product|main|primary|featured|attachment|wp-post-image', re.I))
+            
+            if not img:
+                gallery = soup.find(['div', 'figure', 'section'], class_=re.compile(r'gallery|image|photo|slider|carousel', re.I))
+                if gallery:
+                    img = gallery.find('img')
+            
+            if not img:
+                content = soup.find(['div', 'section', 'article'], class_=re.compile(r'content|main|product|entry', re.I))
+                if content:
+                    img = content.find('img')
+            
+            if not img:
+                all_imgs = soup.find_all('img')
+                for test_img in all_imgs:
+                    width = test_img.get('width', '')
+                    height = test_img.get('height', '')
+                    if width and height:
+                        try:
+                            if int(width) > 200 and int(height) > 200:
+                                img = test_img
+                                break
+                        except:
+                            pass
+                    src = test_img.get('src', '') + test_img.get('data-src', '')
+                    if any(keyword in src.lower() for keyword in ['product', 'gallery', 'upload', 'media']):
+                        img = test_img
+                        break
+            
+            if not img:
+                all_imgs = soup.find_all('img')
+                for test_img in all_imgs:
+                    src = test_img.get('src', '') or test_img.get('data-src', '')
+                    if src and not any(skip in src.lower() for skip in ['logo', 'icon', 'favicon', 'tracking', 'pixel', '1x1']):
+                        img = test_img
+                        break
+            
+            if img:
+                image_url = (
+                    img.get('src') or 
+                    img.get('data-src') or 
+                    img.get('data-lazy-src') or
+                    img.get('data-original') or
+                    img.get('data-lazy') or
+                    img.get('data-srcset', '').split(',')[0].strip().split(' ')[0] if img.get('data-srcset') else None
+                )
+                
+                if not image_url and img.get('srcset'):
+                    srcset = img.get('srcset', '')
+                    if srcset:
+                        image_url = srcset.split(',')[0].strip().split(' ')[0]
+                
+                if image_url:
+                    image_url = urljoin(product_url, image_url)
+            
+            # Extract description
+            description = ""
+            desc_elem = soup.find(['div', 'p'], class_=re.compile(r'description|desc|content|text', re.I))
+            if desc_elem:
+                description = desc_elem.get_text(strip=True)[:500]
+            
+            if not name:
+                name = "Unknown Product"
+            
+            return {
+                'name': name,
+                'url': product_url,
+                'product_id': product_id or '',
+                'category': category,
+                'subcategory': 'General',
+                'image_url': image_url,
+                'description': description,
                 'specifications': {}
             }
         
