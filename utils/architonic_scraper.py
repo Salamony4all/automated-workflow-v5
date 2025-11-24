@@ -88,6 +88,7 @@ class ArchitonicScraper:
         Scrape a brand's collections page (like /en/b/narbutas/products/)
         Returns data in the same structure as the example JSON file
         """
+        scraper = None  # Initialize at function scope
         try:
             from datetime import datetime
             import requests
@@ -107,6 +108,12 @@ class ArchitonicScraper:
                 except Exception as e:
                     logger.warning(f"Selenium failed, falling back to requests: {e}")
                     # Fall back to requests
+                    if scraper:
+                        try:
+                            scraper.close()
+                        except:
+                            pass
+                    scraper = None
                     response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
                     response.raise_for_status()
                     soup = BeautifulSoup(response.content, 'html.parser')
@@ -150,7 +157,12 @@ class ArchitonicScraper:
                     category = parts[0]
                     subcategory = parts[-1]
                 
-                collection_products = self._scrape_single_collection(scraper, collection_url, collection_name, brand_name)
+                # Scrape collection - use Selenium if available, otherwise use requests
+                if scraper:
+                    collection_products = self._scrape_single_collection(scraper, collection_url, collection_name, brand_name)
+                else:
+                    # Use requests-based scraping for single collection
+                    collection_products = self._scrape_single_collection_requests(collection_url, collection_name, brand_name)
                 
                 if collection_products:
                     # Enrich products with category info
@@ -167,6 +179,13 @@ class ArchitonicScraper:
                     }
                     all_products_list.extend(collection_products)
                     time.sleep(1)  # Reduced rate limiting delay
+            
+            # Close scraper if it was used
+            if scraper:
+                try:
+                    scraper.close()
+                except:
+                    pass
             
             # Build the final structure matching the example
             result = {
@@ -187,6 +206,12 @@ class ArchitonicScraper:
             
         except Exception as e:
             logger.error(f"Error scraping collections page: {e}")
+            # Close scraper if it was used
+            if 'scraper' in locals() and scraper:
+                try:
+                    scraper.close()
+                except:
+                    pass
             return {'error': str(e)}
         finally:
             scraper.close()
@@ -375,6 +400,65 @@ class ArchitonicScraper:
         except Exception as e:
             logger.error(f"Error finding collection links with requests: {e}")
             return {}
+    
+    def _scrape_single_collection_requests(self, collection_url: str, collection_name: str, brand_name: str) -> List[Dict]:
+        """Scrape a single collection page using requests and return list of products"""
+        formatted_products = []
+        seen_product_ids = set()
+        
+        try:
+            import requests
+            logger.info(f"Loading collection with requests: {collection_url}")
+            response = requests.get(collection_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            if not soup:
+                return formatted_products
+            
+            # Extract products from page
+            page_products = self._extract_all_products_from_page(soup, collection_url, brand_name)
+            
+            logger.info(f"Extracted {len(page_products)} products from collection")
+            
+            # Add products
+            for product in page_products:
+                product_id = product.get('product_id')
+                product_url = product.get('source_url', '')
+                product_name = product.get('model', 'Unknown')
+                
+                if not product_id and product_url:
+                    id_match = re.search(r'/(\d+)/?$', product_url)
+                    if id_match:
+                        product_id = id_match.group(1)
+                
+                unique_id = product_id or product_url
+                
+                if unique_id and unique_id not in seen_product_ids:
+                    seen_product_ids.add(unique_id)
+                    
+                    formatted_product = {
+                        'name': product_name,
+                        'url': product_url,
+                        'product_id': product_id or '',
+                        'collection': collection_name,
+                        'model': product.get('model', product_name),
+                        'description': product.get('description', ''),
+                        'image_url': product.get('image_url'),
+                        'source_url': product_url,
+                        'brand': brand_name,
+                        'price': product.get('price'),
+                        'price_range': product.get('price_range', 'Contact for price'),
+                        'features': product.get('features', []),
+                        'specifications': product.get('specifications', {})
+                    }
+                    formatted_products.append(formatted_product)
+            
+            return formatted_products
+            
+        except Exception as e:
+            logger.error(f"Error scraping collection {collection_url} with requests: {e}")
+            return formatted_products
     
     def _scrape_single_collection(self, scraper: SeleniumScraper, collection_url: str, 
                                   collection_name: str, brand_name: str) -> List[Dict]:

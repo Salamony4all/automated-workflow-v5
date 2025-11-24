@@ -78,7 +78,20 @@ class SeleniumScraper:
             chrome_options.add_experimental_option('useAutomationExtension', False)
             
             if WEBDRIVER_MANAGER_AVAILABLE:
-                service = Service(ChromeDriverManager().install())
+                try:
+                    service = Service(ChromeDriverManager().install())
+                except Exception as e:
+                    logger.warning(f"ChromeDriverManager failed: {e}, trying without version detection")
+                    # Try to use ChromeDriverManager without version detection
+                    try:
+                        from webdriver_manager.chrome import ChromeDriverManager
+                        from webdriver_manager.core.os_manager import ChromeType
+                        manager = ChromeDriverManager()
+                        # Force a specific version or skip version detection
+                        service = Service(manager.install())
+                    except Exception as e2:
+                        logger.error(f"Failed to initialize ChromeDriverManager: {e2}")
+                        raise ImportError(f"Cannot initialize Chrome WebDriver: {e2}")
             else:
                 service = Service()  # Use system ChromeDriver
             
