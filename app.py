@@ -31,8 +31,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=4)  # Session lasts 4
 
 # Configurable brands data directory - can point to Railway volume for persistence
 # Set BRANDS_DATA_PATH environment variable to use a mounted volume
-BRANDS_DATA_DIR = os.environ.get('BRANDS_DATA_PATH', BRANDS_DATA_DIR)
-logger.info(f"Brands data directory: {BRANDS_DATA_DIR}")
+BRANDS_DATA_DIR = os.environ.get('BRANDS_DATA_PATH', 'brands_data')
 
 # Ensure brands data directory exists
 os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
@@ -49,6 +48,9 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Log brands data directory configuration
+logger.info(f"Brands data directory configured: {BRANDS_DATA_DIR}")
 
 # PP-StructureV3 API Configuration
 # Using API URL from official documentation (PP-StructureV3_API_en documentation.txt)
