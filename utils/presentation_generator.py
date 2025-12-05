@@ -444,68 +444,96 @@ class PresentationGenerator:
         prs.save(output_file)
     
     def convert_pptx_to_pdf(self, pptx_file, pdf_file):
-        """Convert PPTX to PDF using PowerPoint COM automation on Windows"""
+        """Convert PPTX to PDF using LibreOffice (cross-platform) or PowerPoint (Windows only)"""
+        import platform
+        import subprocess
+        import time
+        
+        pptx_abs = os.path.abspath(pptx_file)
+        pdf_abs = os.path.abspath(pdf_file)
+        output_dir = os.path.dirname(pdf_abs)
+        
+        logger.info(f"Converting PPTX to PDF: {pptx_abs} -> {pdf_abs}")
+        
         try:
-            import platform
-            import time
+            # Try LibreOffice first (works on Linux/Railway)
+            libreoffice_cmds = [
+                'libreoffice',
+                'soffice',
+                '/usr/bin/libreoffice',
+                '/usr/bin/soffice'
+            ]
             
+            for cmd in libreoffice_cmds:
+                try:
+                    # LibreOffice headless conversion
+                    result = subprocess.run(
+                        [cmd, '--headless', '--convert-to', 'pdf', '--outdir', output_dir, pptx_abs],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    
+                    if result.returncode == 0:
+                        # LibreOffice creates PDF with same name as PPTX
+                        expected_pdf = os.path.join(output_dir, os.path.splitext(os.path.basename(pptx_abs))[0] + '.pdf')
+                        
+                        # Wait for file to be created
+                        for _ in range(20):
+                            if os.path.exists(expected_pdf) and os.path.getsize(expected_pdf) > 1000:
+                                # Rename if necessary
+                                if expected_pdf != pdf_abs:
+                                    if os.path.exists(pdf_abs):
+                                        os.remove(pdf_abs)
+                                    os.rename(expected_pdf, pdf_abs)
+                                
+                                logger.info(f"PDF created successfully with LibreOffice: {pdf_abs}")
+                                return
+                            time.sleep(0.5)
+                        
+                        logger.warning(f"LibreOffice conversion completed but PDF not found: {expected_pdf}")
+                    else:
+                        logger.debug(f"LibreOffice command failed: {result.stderr}")
+                        
+                except FileNotFoundError:
+                    continue  # Try next command
+                except Exception as e:
+                    logger.debug(f"LibreOffice attempt with {cmd} failed: {e}")
+                    continue
+            
+            # Fallback to PowerPoint on Windows
             if platform.system() == 'Windows':
                 try:
                     import comtypes.client
                     
-                    logger.info(f"Converting PPTX to PDF using PowerPoint COM: {pptx_file}")
+                    logger.info("Attempting PowerPoint COM conversion on Windows")
                     
-                    # Convert paths to absolute
-                    pptx_abs = os.path.abspath(pptx_file)
-                    pdf_abs = os.path.abspath(pdf_file)
-                    
-                    logger.info(f"Absolute paths - PPTX: {pptx_abs}, PDF: {pdf_abs}")
-                    
-                    # Create PowerPoint application
                     powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-                    powerpoint.Visible = 1  # Must be visible for COM automation
+                    powerpoint.Visible = 1
                     
-                    logger.info("PowerPoint application created")
-                    
-                    # Open presentation without window restrictions
                     presentation = powerpoint.Presentations.Open(pptx_abs)
-                    
-                    logger.info("Presentation opened")
-                    
-                    # Save as PDF (32 = ppSaveAsPDF)
-                    presentation.SaveAs(pdf_abs, 32)
-                    
-                    logger.info("SaveAs called")
-                    
-                    # Close and cleanup
+                    presentation.SaveAs(pdf_abs, 32)  # 32 = ppSaveAsPDF
                     presentation.Close()
                     powerpoint.Quit()
                     
-                    logger.info("PowerPoint closed")
-                    
-                    # Wait for file to be fully written
-                    max_wait = 10  # 10 seconds max
-                    wait_time = 0
-                    while wait_time < max_wait:
+                    # Wait for file
+                    for _ in range(20):
                         if os.path.exists(pdf_abs) and os.path.getsize(pdf_abs) > 1000:
-                            logger.info(f"PDF created successfully: {pdf_abs} ({os.path.getsize(pdf_abs)} bytes)")
+                            logger.info(f"PDF created successfully with PowerPoint: {pdf_abs}")
                             return
                         time.sleep(0.5)
-                        wait_time += 0.5
-                    
-                    logger.warning(f"PDF file not found or too small after {max_wait} seconds")
                     
                 except Exception as e:
                     logger.error(f"PowerPoint COM conversion failed: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-                    raise
-            else:
-                raise Exception("PowerPoint COM automation is only available on Windows")
+            
+            # If all methods fail, raise error
+            raise Exception("Could not convert PPTX to PDF. LibreOffice/PowerPoint not available or conversion failed.")
             
         except Exception as e:
             logger.error(f"Error converting PPTX to PDF: {e}")
-            raise Exception(f"Could not convert presentation to PDF. Please ensure Microsoft PowerPoint is installed. Error: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise Exception(f"Could not convert presentation to PDF. Error: {str(e)}")
     
     def create_title_slide_pptx(self, prs):
         """Create PowerPoint title slide with enhanced design"""
