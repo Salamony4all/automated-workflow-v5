@@ -52,6 +52,25 @@ logger = logging.getLogger(__name__)
 # Log brands data directory configuration
 logger.info(f"Brands data directory configured: {BRANDS_DATA_DIR}")
 
+# Copy existing brand files to volume on first startup (if volume is empty)
+if BRANDS_DATA_DIR != 'brands_data' and os.path.exists('brands_data'):
+    try:
+        # Check if volume is empty or has fewer files than repo
+        repo_files = [f for f in os.listdir('brands_data') if f.endswith('.json')]
+        volume_files = [f for f in os.listdir(BRANDS_DATA_DIR) if f.endswith('.json')] if os.path.exists(BRANDS_DATA_DIR) else []
+        
+        if len(volume_files) < len(repo_files):
+            logger.info(f"Initializing volume with {len(repo_files)} brand files from repository...")
+            for filename in repo_files:
+                src = os.path.join('brands_data', filename)
+                dst = os.path.join(BRANDS_DATA_DIR, filename)
+                if not os.path.exists(dst):
+                    shutil.copy2(src, dst)
+                    logger.info(f"Copied {filename} to volume")
+            logger.info("Volume initialization complete")
+    except Exception as e:
+        logger.error(f"Error initializing volume with brand data: {e}")
+
 # PP-StructureV3 API Configuration
 # Using API URL from official documentation (PP-StructureV3_API_en documentation.txt)
 API_URL = os.environ.get('PP_STRUCTURE_API_URL', 'https://wfk3ide9lcd0x0k9.aistudio-hub.baidu.com/layout-parsing')
@@ -2654,6 +2673,7 @@ def get_brands_list():
         brands_data_dir = BRANDS_DATA_DIR
         
         if not os.path.exists(brands_data_dir):
+            logger.warning(f"Brands data directory not found: {brands_data_dir}")
             return jsonify({
                 'success': True,
                 'brands': [],
@@ -2661,13 +2681,52 @@ def get_brands_list():
                 'category': category
             })
         
+        logger.info(f"Loading brands from: {brands_data_dir} for tier: {tier}")
         
-        # Load all brand files for this tier
+        # Method 1: Load from brands_dynamic.json (primary source)
         import json
+        brands_dynamic_path = os.path.join(brands_data_dir, 'brands_dynamic.json')
+        if os.path.exists(brands_dynamic_path):
+            try:
+                with open(brands_dynamic_path, 'r', encoding='utf-8') as f:
+                    brands_dynamic = json.load(f)
+                
+                for brand_entry in brands_dynamic.get('brands', []):
+                    brand_tier = brand_entry.get('tier', '').lower().replace('-', '_')
+                    if brand_tier == tier:
+                        brand_categories = brand_entry.get('categories', {})
+                        category_tree = brand_entry.get('category_tree', {})
+                        
+                        # Use category_tree if available, fallback to categories
+                        categories_list = list(category_tree.keys()) if category_tree else list(brand_categories.keys())
+                        
+                        # Filter by category if specified
+                        if category:
+                            category_lower = category.lower()
+                            has_category = any(cat.lower() == category_lower for cat in categories_list)
+                            if not has_category:
+                                continue
+                        
+                        brands.append({
+                            'name': brand_entry.get('name', 'Unknown'),
+                            'website': brand_entry.get('website', ''),
+                            'country': brand_entry.get('country', 'Unknown'),
+                            'tier': tier,
+                            'categories': categories_list
+                        })
+                
+                logger.info(f"Loaded {len(brands)} brands from brands_dynamic.json for tier {tier}")
+            except Exception as e:
+                logger.error(f"Error loading brands_dynamic.json: {e}")
+        
+        # Method 2: Also load from individual brand files (backup/legacy)
         import re
         pattern = re.compile(rf'^.+_{re.escape(tier)}\.json$', re.I)
         
         for filename in os.listdir(brands_data_dir):
+            if filename == 'brands_dynamic.json':
+                continue  # Already processed
+            
             if pattern.match(filename):
                 try:
                     filepath = os.path.join(brands_data_dir, filename)
@@ -2675,16 +2734,19 @@ def get_brands_list():
                         brand_data = json.load(f)
                     
                     brand_name = brand_data.get('brand', 'Unknown')
+                    
+                    # Skip if already loaded from brands_dynamic.json
+                    if any(b['name'].lower() == brand_name.lower() for b in brands):
+                        continue
+                    
                     brand_categories = brand_data.get('categories', {})
+                    category_tree = brand_data.get('category_tree', {})
+                    categories_list = list(category_tree.keys()) if category_tree else list(brand_categories.keys())
                     
                     # Filter by category if specified
                     if category:
                         category_lower = category.lower()
-                        has_category = any(
-                            cat.lower() == category_lower or 
-                            any(subcat.lower() == category_lower for subcat in cats.keys())
-                            for cat, cats in brand_categories.items()
-                        )
+                        has_category = any(cat.lower() == category_lower for cat in categories_list)
                         if not has_category:
                             continue
                     
@@ -2693,11 +2755,13 @@ def get_brands_list():
                         'website': brand_data.get('website', ''),
                         'country': brand_data.get('country', 'Unknown'),
                         'tier': tier,
-                        'categories': list(brand_categories.keys())
+                        'categories': categories_list
                     })
                 except Exception as e:
                     logger.warning(f"Error loading brand file {filename}: {e}")
                     continue
+        
+        logger.info(f"Total brands loaded for tier {tier}: {len(brands)}")
         
         return jsonify({
             'success': True,
