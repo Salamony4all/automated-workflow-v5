@@ -6,8 +6,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 import json
 from datetime import datetime
 import re
@@ -20,26 +18,14 @@ class OfferGenerator:
         self.setup_custom_styles()
     
     def setup_custom_styles(self):
-        """Setup custom paragraph styles with Arabic support"""
-        # Try to register Arabic font (fallback to Helvetica if not available)
-        try:
-            # Register DejaVu Sans which supports Arabic
-            pdfmetrics.registerFont(TTFont('Arabic', 'DejaVuSans.ttf'))
-            arabic_font = 'Arabic'
-        except:
-            # Fallback to Helvetica if Arabic font not available
-            arabic_font = 'Helvetica'
-        
-        self.arabic_font = arabic_font
-        
+        """Setup custom paragraph styles"""
         self.title_style = ParagraphStyle(
             'CustomTitle',
             parent=self.styles['Heading1'],
             fontSize=24,
             textColor=colors.HexColor('#1a365d'),
             spaceAfter=30,
-            alignment=TA_CENTER,
-            fontName=arabic_font
+            alignment=TA_CENTER
         )
         
         self.header_style = ParagraphStyle(
@@ -50,7 +36,7 @@ class OfferGenerator:
             spaceAfter=12
         )
         
-        # Compact style for table cells with Arabic support
+        # Compact style for table cells
         self.table_cell_style = ParagraphStyle(
             'TableCell',
             parent=self.styles['Normal'],
@@ -60,21 +46,19 @@ class OfferGenerator:
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
-            fontName=arabic_font,
-            wordWrap='LTR'  # Left-to-right word wrap for better numeric display
+            wordWrap='CJK'  # Better word wrapping
         )
         
-        # Extra small style for numeric columns to prevent wrapping
+        # Extra small style for numeric columns to prevent wrapping (single-line display)
         self.table_numeric_style = ParagraphStyle(
             'TableNumeric',
             parent=self.styles['Normal'],
-            fontSize=6,  # Very small for numbers
+            fontSize=6,  # Very small for numbers to fit in one line
             leading=7,
             spaceAfter=0,
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
-            fontName=arabic_font,
             wordWrap='LTR'
         )
         
@@ -82,13 +66,12 @@ class OfferGenerator:
         self.table_header_style = ParagraphStyle(
             'TableHeader',
             parent=self.styles['Normal'],
-            fontSize=6,  # Reduced from 7
+            fontSize=6,  # Small font for compact headers
             leading=7,
             spaceAfter=0,
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
-            fontName=arabic_font,
             alignment=TA_CENTER,
             wordWrap='CJK'
         )
@@ -97,13 +80,12 @@ class OfferGenerator:
         self.table_header_tiny_style = ParagraphStyle(
             'TableHeaderTiny',
             parent=self.styles['Normal'],
-            fontSize=5,  # Minimum readable size
+            fontSize=5,  # Minimum readable size for many columns
             leading=6,
             spaceAfter=0,
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
-            fontName=arabic_font,
             alignment=TA_CENTER,
             wordWrap='CJK'
         )
@@ -118,7 +100,6 @@ class OfferGenerator:
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
-            fontName=arabic_font,
             wordWrap='CJK'
         )
 
@@ -303,62 +284,15 @@ class OfferGenerator:
             table_rows = []
             
             # Headers - clean and format, exclude Action and Product Selection columns
-            # CRITICAL FIX: Ensure ALL headers are clean strings, reject any objects
             headers = table_data['headers']
-            header_mapping = {}
-            filtered_headers = []
+            # Filter out Action/Actions and Product Selection columns
+            filtered_headers = [h for h in headers if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
             
-            for h in headers:
-                # Force convert to string and clean immediately
-                h_raw = str(h) if h is not None else ''
-                
-                # Skip empty headers
-                if not h_raw or not h_raw.strip():
-                    continue
-                
-                # REJECT any Paragraph object representations immediately
-                if '<' in h_raw and 'at 0x' in h_raw:
-                    # This is an object representation, try to extract text
-                    # Pattern: '<ClassName at 0xHEX>TEXT' or just '<ClassName at 0xHEX>'
-                    match = re.search(r'>([^<]+)$', h_raw)
-                    if match and match.group(1).strip():
-                        h_str = match.group(1).strip()
-                    else:
-                        # No extractable text, skip this header
-                        continue
-                else:
-                    h_str = h_raw.strip()
-                
-                # Final validation: must be plain text (no angle brackets)
-                if '<' in h_str or '>' in h_str:
-                    continue
-                
-                h_lower = h_str.lower()
-                # Exclude action columns and original price columns
-                if h_lower not in ['action', 'actions', 'product selection', 'productselection'] and '_original' not in h_str and h_str:
-                    # FINAL VALIDATION: Absolutely no angle brackets allowed
-                    if '<' not in h_str and '>' not in h_str:
-                        filtered_headers.append(h_str)
-                        header_mapping[h_str] = h  # Map clean string to original header
-            
-            # Safety check: If no valid headers found, log error and return early
-            if not filtered_headers:
-                logger.error("No valid headers found after filtering - all contained objects or were empty")
-                return None
-            
-            # Use tiny header style for tables with many columns (10+)
+            # Use tiny header style for tables with many columns (10+) to fit in 1-2 lines max
             num_cols = len(filtered_headers)
             header_style = self.table_header_tiny_style if num_cols > 10 else self.table_header_style
             
-            # Create header row with triple-checked clean strings
-            header_row = []
-            for h in filtered_headers:
-                # One more safety check before creating Paragraph
-                if '<' in h or '>' in h or 'Paragraph' in h:
-                    logger.error(f"Malformed header detected: {h}")
-                    header_row.append(Paragraph("<b>Column</b>", header_style))
-                else:
-                    header_row.append(Paragraph(f"<b>{h}</b>", header_style))
+            header_row = [Paragraph(f"<b>{h}</b>", header_style) for h in filtered_headers]
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -366,20 +300,11 @@ class OfferGenerator:
                 table_row = []
                 
                 for h in filtered_headers:
-                    # Use original header key for lookup
-                    original_h = header_mapping.get(h, h)
-                    cell_value = row.get(original_h, '')
+                    cell_value = row.get(h, '')
                     
-                    # CRITICAL: Ensure cell_value is clean string, not Paragraph object
-                    # Check if it's a Paragraph object by checking class name
-                    if hasattr(cell_value, '__class__'):
-                        class_name = cell_value.__class__.__name__
-                        if class_name == 'Paragraph' or 'Paragraph' in str(type(cell_value)):
-                            # Extract text from Paragraph or skip this cell
-                            cell_value = ''
-                    
-                    # Convert to string and ensure it's clean
-                    cell_value = str(cell_value) if cell_value else ''
+                    # Skip original price fields
+                    if '_original' in h:
+                        continue
                     
                     # Check if this cell contains an image reference
                     if self.contains_image(cell_value):
@@ -429,19 +354,7 @@ class OfferGenerator:
                     else:
                         # Regular text cell - use final costed value only
                         # Strip any HTML tags that might remain
-                        final_value = str(cell_value) if cell_value else ''
-                        
-                        # Safety check: If it looks like a Paragraph object representation, clear it
-                        if '<Paragraph at ' in final_value or final_value.startswith('<') and 'object at' in final_value:
-                            final_value = ''
-                        
-                        # Strip HTML tags
-                        final_value = re.sub(r'<[^>]+>', '', final_value)
-                        final_value = final_value.strip()
-                        
-                        # Remove excessive newlines and normalize whitespace
-                        final_value = re.sub(r'\\n+', ' ', final_value)
-                        final_value = re.sub(r'\\s+', ' ', final_value)
+                        final_value = re.sub(r'<[^>]+>', '', str(cell_value))
                         
                         # Format numbers nicely
                         if self.is_numeric_column(h):
@@ -451,7 +364,7 @@ class OfferGenerator:
                             except:
                                 pass
                         
-                        # Limit very long text to prevent cell overflow (max ~60 lines at 6pt font)
+                        # Limit very long text to prevent cell overflow
                         if len(final_value) > 800:
                             final_value = final_value[:797] + '...'
                         
@@ -460,7 +373,7 @@ class OfferGenerator:
                         if ('descript' in h_lower or 'item' in h_lower) and len(final_value) > 200:
                             cell_style = self.table_description_style
                         elif self.is_numeric_column(h):
-                            # Use extra small font for numeric columns to prevent wrapping
+                            # Use extra small font for numeric columns to prevent wrapping (single-line)
                             cell_style = self.table_numeric_style
                         else:
                             cell_style = self.table_cell_style
@@ -676,17 +589,6 @@ class OfferGenerator:
             # Default for unknown columns - small
             else:
                 widths.append(0.5 * inch * scale_for_columns)
-        
-        # Normalize to fit total width
-        current_total = sum(widths)
-        if current_total > total_width:
-            scale_factor = total_width / current_total
-            widths = [w * scale_factor for w in widths]
-        elif current_total < total_width * 0.95:  # If too small, expand proportionally
-            scale_factor = (total_width * 0.98) / current_total
-            widths = [w * scale_factor for w in widths]
-        
-        return widths
         
         # Normalize to fit total width
         current_total = sum(widths)
