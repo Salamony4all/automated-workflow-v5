@@ -177,7 +177,10 @@ class ExcelProcessor:
                     
                     if row_num not in row_images:
                         row_images[row_num] = []
-                    row_images[row_num].append(rel_path)
+                    
+                    # Only add if not already present (prevent duplicates)
+                    if rel_path not in row_images[row_num]:
+                        row_images[row_num].append(rel_path)
                     
                     logger.info(f"Extracted image {idx} at row {row_num}: {img_filename}")
                 else:
@@ -526,12 +529,15 @@ class ExcelProcessor:
                     
                     if row_has_images and is_image_column:
                         # Add images from this row with click-to-enlarge functionality
+                        # Deduplicate images by using a set
+                        unique_images = list(dict.fromkeys(cell_images[excel_row]))  # Preserve order, remove duplicates
+                        
                         img_html = ''.join([
                             f'<img src="{img}" class="table-thumbnail" '
                             f'style="max-width:80px; max-height:80px; cursor:pointer; margin:2px; object-fit:cover; border: 1px solid #ddd; border-radius: 4px;" '
                             f'onclick="openImageModal(this.src)" '
                             f'title="Click to enlarge" />'
-                            for img in cell_images[excel_row]
+                            for img in unique_images
                         ])
                         
                         # Combine with text if present
