@@ -53,9 +53,12 @@ Session(app)
 # Log brands data directory configuration
 logger.info(f"Brands data directory configured: {BRANDS_DATA_DIR}")
 
-# Copy existing brand files to volume on first startup (if volume is empty)
-if BRANDS_DATA_DIR != 'brands_data' and os.path.exists('brands_data'):
-    try:
+# Ensure brand files exist in target directory
+# On Railway deployment, brands_data folder from repo should already be there
+# But if using a volume, we need to copy files
+try:
+    # Check if we're using a different directory than the repo's brands_data
+    if BRANDS_DATA_DIR != 'brands_data' and os.path.exists('brands_data'):
         # Check if volume is empty or has fewer files than repo
         repo_files = [f for f in os.listdir('brands_data') if f.endswith('.json')]
         volume_files = [f for f in os.listdir(BRANDS_DATA_DIR) if f.endswith('.json')] if os.path.exists(BRANDS_DATA_DIR) else []
@@ -69,8 +72,17 @@ if BRANDS_DATA_DIR != 'brands_data' and os.path.exists('brands_data'):
                     shutil.copy2(src, dst)
                     logger.info(f"Copied {filename} to volume")
             logger.info("Volume initialization complete")
-    except Exception as e:
-        logger.error(f"Error initializing volume with brand data: {e}")
+    
+    # Verify brand files exist
+    brand_files = [f for f in os.listdir(BRANDS_DATA_DIR) if f.endswith('.json')] if os.path.exists(BRANDS_DATA_DIR) else []
+    logger.info(f"Brand files available in {BRANDS_DATA_DIR}: {len(brand_files)} files")
+    if len(brand_files) > 0:
+        logger.info(f"Sample files: {brand_files[:5]}")
+    else:
+        logger.warning(f"No brand JSON files found in {BRANDS_DATA_DIR}!")
+        
+except Exception as e:
+    logger.error(f"Error checking/initializing brand data: {e}")
 
 # PP-StructureV3 API Configuration
 # Using API URL from official documentation (PP-StructureV3_API_en documentation.txt)
