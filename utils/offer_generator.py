@@ -252,7 +252,8 @@ class OfferGenerator:
             for h in headers:
                 h_str = str(h).strip()
                 h_lower = h_str.lower()
-                if h_lower not in ['action', 'actions', 'product selection', 'productselection']:
+                # Exclude action columns and original price columns
+                if h_lower not in ['action', 'actions', 'product selection', 'productselection'] and '_original' not in h_str:
                     filtered_headers.append(h_str)
                     header_mapping[h_str] = h  # Map clean string to original header
             
@@ -268,9 +269,9 @@ class OfferGenerator:
                     original_h = header_mapping.get(h, h)
                     cell_value = row.get(original_h, '')
                     
-                    # Skip original price fields
-                    if '_original' in h:
-                        continue
+                    # Ensure cell_value is never a Paragraph object
+                    if hasattr(cell_value, '__class__') and 'Paragraph' in str(type(cell_value)):
+                        cell_value = str(cell_value)
                     
                     # Check if this cell contains an image reference
                     if self.contains_image(cell_value):
