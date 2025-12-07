@@ -64,12 +64,27 @@ class OfferGenerator:
             wordWrap='CJK'  # Better word wrapping for all languages
         )
         
-        # Smaller style for headers to fit in 1-2 lines
+        # Smaller style for headers to fit in 1-2 lines MAX
         self.table_header_style = ParagraphStyle(
             'TableHeader',
             parent=self.styles['Normal'],
-            fontSize=7,
-            leading=8,
+            fontSize=6,  # Reduced from 7
+            leading=7,
+            spaceAfter=0,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0,
+            fontName=arabic_font,
+            alignment=TA_CENTER,
+            wordWrap='CJK'
+        )
+        
+        # Extra small header for tables with many columns (10+)
+        self.table_header_tiny_style = ParagraphStyle(
+            'TableHeaderTiny',
+            parent=self.styles['Normal'],
+            fontSize=5,  # Minimum readable size
+            leading=6,
             spaceAfter=0,
             spaceBefore=0,
             leftIndent=0,
@@ -286,7 +301,11 @@ class OfferGenerator:
                     filtered_headers.append(h_str)
                     header_mapping[h_str] = h  # Map clean string to original header
             
-            header_row = [Paragraph(f"<b>{h}</b>", self.table_header_style) for h in filtered_headers]
+            # Use tiny header style for tables with many columns (10+)
+            num_cols = len(filtered_headers)
+            header_style = self.table_header_tiny_style if num_cols > 10 else self.table_header_style
+            
+            header_row = [Paragraph(f"<b>{h}</b>", header_style) for h in filtered_headers]
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -527,8 +546,12 @@ class OfferGenerator:
         return any(keyword in header.lower() for keyword in numeric_keywords)
     
     def calculate_column_widths(self, headers, num_cols):
-        """Calculate dynamic column widths based on content - match Excel layout with larger images"""
+        """Calculate dynamic column widths - PRIORITIZE images/descriptions, scale for many columns"""
         total_width = 7.5 * inch  # A4 page width minus margins
+        
+        # Detect if too many columns - scale everything down
+        has_many_columns = num_cols > 10
+        scale_for_columns = 0.75 if has_many_columns else 1.0
         
         # Identify column types and assign appropriate widths
         widths = []
@@ -540,49 +563,49 @@ class OfferGenerator:
             
             # Serial number column - minimal (SN)
             if 'sn' in h_lower or 'sl' in h_lower or 'si' in h_lower or (h_lower in ['no', '#']) or 'serial' in h_lower:
-                widths.append(0.3 * inch)
+                widths.append(0.25 * inch * scale_for_columns)
             
             # Location column - small
             elif 'location' in h_lower or 'loc' in h_lower:
-                widths.append(0.55 * inch)
+                widths.append(0.45 * inch * scale_for_columns)
             
-            # Image/reference column - MUCH LARGER to match Excel (1.6")
+            # Image/reference column - PRIORITY: Keep large even with many columns
             elif 'img' in h_lower or 'image' in h_lower or 'indicative' in h_lower or 'ref' in h_lower:
-                widths.append(1.6 * inch)
+                widths.append(1.8 * inch * max(0.85, scale_for_columns))  # Don't shrink as much
                 has_image = True
+            
+            # Description column - PRIORITY: Keep large for detailed text
+            elif 'descript' in h_lower or 'discript' in h_lower:
+                widths.append(3.8 * inch * max(0.85, scale_for_columns))  # Don't shrink as much
+                has_description = True
             
             # Item/Product name - small if description exists
             elif 'item' in h_lower or 'product' in h_lower:
-                widths.append(0.8 * inch if has_description else 2.5 * inch)
-            
-            # Description column - LARGE for detailed text (3.5")
-            elif 'descript' in h_lower or 'discript' in h_lower:
-                widths.append(3.5 * inch)
-                has_description = True
+                widths.append((0.7 * inch if has_description else 2.3 * inch) * scale_for_columns)
             
             # Unit column - minimal
             elif 'unit' in h_lower and 'rate' not in h_lower and 'price' not in h_lower and 'total' not in h_lower:
-                widths.append(0.35 * inch)
+                widths.append(0.3 * inch * scale_for_columns)
             
             # Quantity columns - small
             elif 'qty' in h_lower or 'quantity' in h_lower or 'office' in h_lower:
-                widths.append(0.4 * inch)
+                widths.append(0.35 * inch * scale_for_columns)
             
-            # Rate/Price - compact numbers (0.6")
+            # Rate/Price - compact numbers
             elif 'rate' in h_lower or 'price' in h_lower:
-                widths.append(0.6 * inch)
+                widths.append(0.5 * inch * scale_for_columns)
             
-            # Total/Amount - medium for numbers (0.7")
+            # Total/Amount - medium for numbers
             elif 'amount' in h_lower or 'total' in h_lower:
-                widths.append(0.7 * inch)
+                widths.append(0.6 * inch * scale_for_columns)
             
             # Supplier/Brand/Model - medium
             elif 'supplier' in h_lower or 'brand' in h_lower or 'model' in h_lower:
-                widths.append(0.7 * inch)
+                widths.append(0.6 * inch * scale_for_columns)
             
-            # Default for unknown columns - medium
+            # Default for unknown columns - small
             else:
-                widths.append(0.6 * inch)
+                widths.append(0.5 * inch * scale_for_columns)
         
         # Normalize to fit total width
         current_total = sum(widths)
