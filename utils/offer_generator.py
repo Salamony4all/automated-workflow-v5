@@ -54,14 +54,28 @@ class OfferGenerator:
         self.table_cell_style = ParagraphStyle(
             'TableCell',
             parent=self.styles['Normal'],
-            fontSize=8,
-            leading=10,
+            fontSize=7,  # Reduced from 8 to prevent wrapping
+            leading=8,
             spaceAfter=0,
             spaceBefore=0,
             leftIndent=0,
             rightIndent=0,
             fontName=arabic_font,
-            wordWrap='CJK'  # Better word wrapping for all languages
+            wordWrap='LTR'  # Left-to-right word wrap for better numeric display
+        )
+        
+        # Extra small style for numeric columns to prevent wrapping
+        self.table_numeric_style = ParagraphStyle(
+            'TableNumeric',
+            parent=self.styles['Normal'],
+            fontSize=6,  # Very small for numbers
+            leading=7,
+            spaceAfter=0,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0,
+            fontName=arabic_font,
+            wordWrap='LTR'
         )
         
         # Smaller style for headers to fit in 1-2 lines MAX
@@ -445,6 +459,9 @@ class OfferGenerator:
                         h_lower = h.lower()
                         if ('descript' in h_lower or 'item' in h_lower) and len(final_value) > 200:
                             cell_style = self.table_description_style
+                        elif self.is_numeric_column(h):
+                            # Use extra small font for numeric columns to prevent wrapping
+                            cell_style = self.table_numeric_style
                         else:
                             cell_style = self.table_cell_style
                         

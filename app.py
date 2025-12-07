@@ -465,6 +465,10 @@ def upload_and_extract():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     
+    # Clear any existing costed data to prevent Paragraph object corruption
+    if 'costed_data' in session:
+        session.pop('costed_data', None)
+    
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         session_id = session['session_id']
