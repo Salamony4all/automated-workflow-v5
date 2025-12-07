@@ -294,12 +294,16 @@ class OfferGenerator:
             header_mapping = {}
             filtered_headers = []
             for h in headers:
+                h_str = None
+                
                 # CRITICAL: If header is a Paragraph object, extract its text content
                 if hasattr(h, '__class__') and h.__class__.__name__ == 'Paragraph':
                     # Try to extract text from Paragraph - use the text parameter if available
                     try:
                         if hasattr(h, 'text'):
                             h_str = str(h.text).strip()
+                        elif hasattr(h, '_content'):
+                            h_str = str(h._content).strip()
                         else:
                             # Skip this malformed header
                             continue
@@ -309,13 +313,14 @@ class OfferGenerator:
                     h_str = str(h).strip()
                 
                 # Safety check: If string representation looks like Paragraph object, extract actual text
+                # Format: '<Paragraph at 0x7fb454196850>SN' -> extract 'SN'
                 if '<Paragraph at ' in h_str:
-                    # Try to extract the actual text after the object representation
-                    # Format is usually '<Paragraph at 0x...>ACTUALTEXT'
-                    match = re.search(r'<Paragraph at 0x[^>]+>(.+)', h_str)
+                    # Match pattern: <Paragraph at 0xHEXDIGITS>TEXT
+                    match = re.search(r'<Paragraph at 0x[0-9a-fA-F]+>(.+)$', h_str)
                     if match:
                         h_str = match.group(1).strip()
                     else:
+                        # No text after Paragraph object, skip
                         continue
                 
                 h_lower = h_str.lower()
