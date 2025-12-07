@@ -288,8 +288,12 @@ class OfferGenerator:
             
             # Clean headers: extract text from any Paragraph object representations
             cleaned_headers = []
+            header_mapping = {}  # Map cleaned header -> original header
+            
             for h in headers:
                 h_str = str(h) if h is not None else ''
+                original_h = h  # Keep original for mapping
+                
                 # If header looks like '<Paragraph at 0xHEX>TEXT', extract just TEXT
                 if '<Paragraph at ' in h_str or '<paragraph at ' in h_str.lower():
                     match = re.search(r'>([^<]+)$', h_str)
@@ -298,7 +302,9 @@ class OfferGenerator:
                     else:
                         # No text after >, skip this header
                         continue
+                
                 cleaned_headers.append(h_str)
+                header_mapping[h_str] = original_h  # Map clean -> original
             
             # Filter out Action/Actions and Product Selection columns
             filtered_headers = [h for h in cleaned_headers if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
@@ -313,12 +319,6 @@ class OfferGenerator:
             # Data rows - show only final costed prices with images
             for row in table_data['rows']:
                 table_row = []
-                
-                # Build mapping from cleaned headers back to original keys
-                header_mapping = {}
-                for i, orig_h in enumerate(headers):
-                    if i < len(cleaned_headers):
-                        header_mapping[cleaned_headers[i]] = orig_h
                 
                 for h in filtered_headers:
                     # Get original header for data lookup
