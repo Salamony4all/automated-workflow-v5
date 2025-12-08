@@ -134,11 +134,18 @@ class PresentationGenerator:
         if not file_info:
             raise Exception('File not found. Please upload and extract a file first.')
         
+        # Check if this is multi-budget and get product selections
+        is_multibudget = file_info.get('multibudget', False)
+        product_selections = file_info.get('product_selections', []) if is_multibudget else []
+        tier = file_info.get('tier', 'budgetary') if is_multibudget else None
+        
         # Get costed data (preferred) or stitched table or extraction result
         if 'costed_data' in file_info:
-            items = self.parse_items_from_costed_data(file_info['costed_data'], session, file_id)
+            items = self.parse_items_from_costed_data(file_info['costed_data'], session, file_id, 
+                                                      is_multibudget, product_selections, tier)
         elif 'stitched_table' in file_info:
-            items = self.parse_items_from_stitched_table(file_info['stitched_table'], session, file_id)
+            items = self.parse_items_from_stitched_table(file_info['stitched_table'], session, file_id,
+                                                         is_multibudget, product_selections, tier)
         elif 'extraction_result' in file_info:
             items = self.parse_items_from_extraction(file_info['extraction_result'], session, file_id)
         else:
@@ -170,33 +177,48 @@ class PresentationGenerator:
         
         return output_file
     
-    def parse_items_from_costed_data(self, costed_data, session, file_id):
+    def parse_items_from_costed_data(self, costed_data, session, file_id, is_multibudget=False, 
+                                     product_selections=None, tier=None):
         """Parse items from costed table data"""
         items = []
         session_id = session.get('session_id', '')
+        product_selections = product_selections or []
         
         for table in costed_data.get('tables', []):
             headers = [h for h in table.get('headers', []) if str(h).lower() not in ['action', 'actions', 'product selection', 'productselection']]
             
-            for row in table.get('rows', []):
+            for row_idx, row in enumerate(table.get('rows', [])):
                 # Log all available columns for debugging
                 logger.info(f"Row headers: {list(row.keys())}")
                 
-                # Find description column - try multiple column names
+                # Find description column - for multi-budget, prioritize Brand Description
                 description = ''
                 raw_description = ''
                 description_found = False
                 
-                # Priority order: DESCRIPTION > Item > Product
-                for h in headers:
-                    h_str = str(h).lower() if h else ''
-                    # Check for description column (most detailed)
-                    if 'descript' in h_str or 'discript' in h_str:
-                        raw_description = row.get(h, '')
-                        description = self.strip_html(raw_description)
-                        logger.info(f"Found DESCRIPTION column '{h}' (length: {len(description)}): {description[:150]}...")
-                        description_found = True
-                        break
+                # For multi-budget: Priority 1 - Brand Description from costed table
+                if is_multibudget:
+                    for h in headers:
+                        h_str = str(h).lower() if h else ''
+                        if 'brand description' in h_str or (h_str == 'brand description'):
+                            raw_description = row.get(h, '')
+                            description = self.strip_html(raw_description)
+                            if description and description.strip() and 'no description' not in description.lower():
+                                logger.info(f"Found BRAND DESCRIPTION column '{h}' (length: {len(description)}): {description[:150]}...")
+                                description_found = True
+                                break
+                
+                # Priority order: Brand Description (multi-budget) > DESCRIPTION > Item > Product
+                if not description_found:
+                    for h in headers:
+                        h_str = str(h).lower() if h else ''
+                        # Check for description column (most detailed) - but skip Brand Description if already checked
+                        if ('descript' in h_str or 'discript' in h_str) and 'brand' not in h_str:
+                            raw_description = row.get(h, '')
+                            description = self.strip_html(raw_description)
+                            logger.info(f"Found DESCRIPTION column '{h}' (length: {len(description)}): {description[:150]}...")
+                            description_found = True
+                            break
                 
                 # If no description column found, try item or product columns
                 if not description_found:
@@ -228,35 +250,74 @@ class PresentationGenerator:
                     if 'total' in h_str or 'amount' in h_str:
                         total = self.strip_html(row.get(h, ''))
                 
-                # Find image(s) - support multiple images per row
-                image_paths = []
-                for h in headers:
-                    cell_value = row.get(h, '')
-                    if self.contains_image(cell_value):
-                        paths = self.extract_all_image_paths(cell_value, session_id, file_id)
-                        if paths:
-                            image_paths.extend(paths)
+                # Find reference image(s) from table - for multi-budget, this will be small reference image
+                reference_image_paths = []
+                image_paths = []  # For non-multi-budget, regular images
+                selected_product_image = None  # For multi-budget: Brand Image from costed table
                 
-                if description:  # Only add if we have a description
+                for h in headers:
+                    h_str = str(h).lower() if h else ''
+                    cell_value = row.get(h, '')
+                    
+                    if is_multibudget:
+                        # For multi-budget: Priority 1 - Brand Image from costed table
+                        if 'brand image' in h_str or h_str == 'brand image':
+                            if self.contains_image(cell_value):
+                                paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                                if paths:
+                                    selected_product_image = paths[0]  # Use first Brand Image
+                                    logger.info(f"Found BRAND IMAGE column '{h}' for multi-budget")
+                        
+                        # For multi-budget: look for indicative/reference image (not Brand Image)
+                        elif ('indicative' in h_str and 'image' in h_str) or ('image' in h_str and 'brand' not in h_str and 'product' not in h_str):
+                            if self.contains_image(cell_value):
+                                paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                                if paths:
+                                    reference_image_paths.extend(paths)
+                    else:
+                        # For non-multi-budget: look for any image column
+                        if 'image' in h_str:
+                            if self.contains_image(cell_value):
+                                paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                                if paths:
+                                    image_paths.extend(paths)
+                
+                # For multi-budget: download Brand Image if it's a URL
+                if is_multibudget and selected_product_image and selected_product_image.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(selected_product_image)
+                    if cached_path:
+                        selected_product_image = cached_path
+                
+                # Use Brand Description and Brand Image from costed table for multi-budget
+                final_description = description  # Already extracted Brand Description above for multi-budget
+                final_image_paths = [selected_product_image] if (is_multibudget and selected_product_image) else (image_paths if image_paths else [])
+                
+                if final_description:  # Only add if we have a description
                     item = {
-                        'description': description,
+                        'description': final_description,
                         'qty': qty,
                         'unit': unit,
                         'unit_rate': unit_rate,
                         'total': total,
-                        'image_path': image_paths[0] if image_paths else None,  # First image for compatibility
-                        'image_paths': image_paths,  # All images
-                        'brand': self.extract_brand(description),
-                        'specifications': self.extract_specifications(description)
+                        'image_path': final_image_paths[0] if final_image_paths else None,  # Selected product image (big)
+                        'image_paths': final_image_paths,  # Selected product images
+                        'reference_image_path': reference_image_paths[0] if reference_image_paths else None,  # Reference image (small) for multi-budget
+                        'reference_image_paths': reference_image_paths,  # All reference images
+                        'is_multibudget': is_multibudget,  # Flag to indicate multi-budget
+                        'brand': self.extract_brand(final_description),
+                        'specifications': self.extract_specifications(final_description)
                     }
                     items.append(item)
         
         return items
     
-    def parse_items_from_stitched_table(self, stitched_table, session, file_id):
+    def parse_items_from_stitched_table(self, stitched_table, session, file_id, is_multibudget=False,
+                                        product_selections=None, tier=None):
         """Parse items from stitched HTML table data"""
         items = []
         session_id = session.get('session_id', '')
+        product_selections = product_selections or []
         
         # Parse the HTML
         html_content = stitched_table.get('html', '')
@@ -285,7 +346,7 @@ class PresentationGenerator:
         rows = table.find_all('tr')[1:]  # Skip first row (headers)
         logger.info(f"Found {len(rows)} data rows")
         
-        for row in rows:
+        for row_idx, row in enumerate(rows):
             cells = row.find_all('td')
             
             # Build row dict, skipping Product Selection and Actions cells
@@ -356,25 +417,62 @@ class PresentationGenerator:
                 if 'total' in h_str or 'amount' in h_str:
                     total = self.strip_html(row_data.get(h, ''))
             
-            # Find image(s) - support multiple images per row
-            image_paths = []
+            # Find reference image(s) from table - for multi-budget, this will be small reference image
+            reference_image_paths = []
+            image_paths = []  # For non-multi-budget, regular images
+            selected_product_image = None  # For multi-budget: Brand Image from costed table
+            
             for h in headers:
+                h_str = str(h).lower() if h else ''
                 cell_value = row_data.get(h, '')
-                if self.contains_image(str(cell_value)):
-                    paths = self.extract_all_image_paths(str(cell_value), session_id, file_id)
-                    if paths:
-                        image_paths.extend(paths)
+                
+                if is_multibudget:
+                    # For multi-budget: Priority 1 - Brand Image from costed table
+                    if 'brand image' in h_str or h_str == 'brand image':
+                        if self.contains_image(str(cell_value)):
+                            paths = self.extract_all_image_paths(str(cell_value), session_id, file_id)
+                            if paths:
+                                selected_product_image = paths[0]  # Use first Brand Image
+                                logger.info(f"Stitched: Found BRAND IMAGE column '{h}' for multi-budget")
+                    
+                    # For multi-budget: look for indicative/reference image (not Brand Image)
+                    elif ('indicative' in h_str and 'image' in h_str) or ('image' in h_str and 'brand' not in h_str and 'product' not in h_str):
+                        if self.contains_image(str(cell_value)):
+                            paths = self.extract_all_image_paths(str(cell_value), session_id, file_id)
+                            if paths:
+                                reference_image_paths.extend(paths)
+                else:
+                    # For non-multi-budget: look for any image column
+                    if 'image' in h_str:
+                        if self.contains_image(str(cell_value)):
+                            paths = self.extract_all_image_paths(str(cell_value), session_id, file_id)
+                            if paths:
+                                image_paths.extend(paths)
+            
+            # For multi-budget: download Brand Image if it's a URL
+            if is_multibudget and selected_product_image and selected_product_image.startswith('http'):
+                from utils.image_helper import download_image
+                cached_path = download_image(selected_product_image)
+                if cached_path:
+                    selected_product_image = cached_path
+            
+            # Use Brand Description and Brand Image from costed table for multi-budget
+            final_description = description  # Already extracted Brand Description above for multi-budget
+            final_image_paths = [selected_product_image] if (is_multibudget and selected_product_image) else (reference_image_paths if reference_image_paths else [])
             
             item = {
-                'description': description,
+                'description': final_description,
                 'qty': qty,
                 'unit': unit,
                 'unit_rate': unit_rate,
                 'total': total,
-                'image_path': image_paths[0] if image_paths else None,  # First image for compatibility
-                'image_paths': image_paths,  # All images
-                'brand': self.extract_brand(description),
-                'specifications': self.extract_specifications(description)
+                'image_path': final_image_paths[0] if final_image_paths else None,  # Selected product image (big)
+                'image_paths': final_image_paths,  # Selected product images
+                'reference_image_path': reference_image_paths[0] if reference_image_paths else None,  # Reference image (small) for multi-budget
+                'reference_image_paths': reference_image_paths,  # All reference images
+                'is_multibudget': is_multibudget,  # Flag to indicate multi-budget
+                'brand': self.extract_brand(final_description),
+                'specifications': self.extract_specifications(final_description)
             }
             items.append(item)
         
@@ -693,6 +791,33 @@ class PresentationGenerator:
             except Exception:
                 pass
         
+        # For multi-budget: Add small reference image in upper left below gold line
+        is_multibudget = item.get('is_multibudget', False)
+        reference_image_path = item.get('reference_image_path')
+        if is_multibudget and reference_image_path:
+            try:
+                # Download if URL
+                if reference_image_path.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(reference_image_path)
+                    if cached_path:
+                        reference_image_path = cached_path
+                
+                if reference_image_path and os.path.exists(reference_image_path):
+                    # Small reference image in upper left (below gold line with spacing)
+                    ref_img = slide.shapes.add_picture(reference_image_path, Inches(0.5), Inches(1.35), width=Inches(1.2), height=Inches(0.9))
+                    
+                    # Add "Reference Image" label below the image
+                    ref_label_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.25), Inches(1.2), Inches(0.2))
+                    ref_label_frame = ref_label_box.text_frame
+                    ref_label_frame.text = "Reference Image"
+                    ref_label_p = ref_label_frame.paragraphs[0]
+                    ref_label_p.font.size = Pt(8)
+                    ref_label_p.font.color.rgb = RGBColor(100, 100, 100)  # Gray
+                    ref_label_p.alignment = PP_ALIGN.CENTER
+            except Exception as e:
+                logger.warning(f"Could not add reference image: {e}")
+        
         # Title in header - show item number and short title
         title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(7.2), Inches(0.6))
         title_frame = title_box.text_frame
@@ -707,69 +832,101 @@ class PresentationGenerator:
         title_p.font.color.rgb = RGBColor(255, 255, 255)  # White text on navy
         
         # Images (left side) - support multiple images, adjusted position to account for taller header
+        # For multi-budget: use selected product images (bigger), not reference images
         image_paths = item.get('image_paths', [item.get('image_path')] if item.get('image_path') else [])
         # Filter out None values
         image_paths = [p for p in image_paths if p]
         
-        logger.info(f"Item {page_num}: Found {len(image_paths)} image(s) to display")
+        # Adjust position if multi-budget (to account for reference image in upper left)
+        image_area_y = Inches(1.8) if not is_multibudget else Inches(2.5)  # Lower if reference image present
+        
+        logger.info(f"Item {page_num}: Found {len(image_paths)} image(s) to display (multibudget: {is_multibudget})")
         
         if image_paths:
-            # Calculate layout for multiple images
-            num_images = len(image_paths)
-            available_width = Inches(4.2)
-            available_height = Inches(4.2)
-            start_x = Inches(0.6)
-            start_y = Inches(1.8)
-            
-            if num_images == 1:
-                # Single image - use full space
-                image_width = available_width
-                positions = [(start_x, start_y)]
-            elif num_images == 2:
-                # Two images - stack vertically
-                image_width = available_width
-                image_height = available_height / 2 - Inches(0.1)
-                positions = [
-                    (start_x, start_y),
-                    (start_x, start_y + available_height / 2 + Inches(0.1))
-                ]
-            else:
-                # 3+ images - grid layout (2 columns)
-                image_width = available_width / 2 - Inches(0.1)
-                rows = (num_images + 1) // 2
-                image_height = available_height / rows - Inches(0.1)
-                positions = []
-                for i in range(num_images):
-                    row = i // 2
-                    col = i % 2
-                    x = start_x + col * (image_width + Inches(0.2))
-                    y = start_y + row * (image_height + Inches(0.2))
-                    positions.append((x, y))
-            
-            # Add all images
-            for idx, image_path in enumerate(image_paths[:6]):  # Limit to 6 images max
-                if idx >= len(positions):
-                    break
-                    
-                # Download if URL
-                if image_path.startswith('http'):
-                    from utils.image_helper import download_image
-                    cached_path = download_image(image_path)
-                    if cached_path:
-                        image_path = cached_path
+            try:
+                from PIL import Image as PILImage
                 
-                if image_path and os.path.exists(image_path):
-                    try:
-                        x, y = positions[idx]
-                        # Add image with width constraint to preserve aspect ratio
-                        pic = slide.shapes.add_picture(image_path, x, y, width=image_width)
-                        logger.info(f"  Added image {idx + 1}/{len(image_paths)}: {os.path.basename(image_path)}")
-                    except Exception as e:
-                        logger.error(f"  Failed to add image {idx + 1}: {e}")
-                        pass
+                # Define image area - adjust for multi-budget
+                area_x = Inches(0.5)
+                area_y = image_area_y  # Use adjusted Y position
+                area_w = Inches(4.5)
+                area_h = Inches(4.0) if is_multibudget else Inches(4.5)  # Slightly smaller if reference image present
+                
+                num_images = min(len(image_paths), 6) # Max 6 images
+                image_paths = image_paths[:num_images]
+                
+                # Determine grid layout
+                if num_images == 1:
+                    rows, cols = 1, 1
+                elif num_images == 2:
+                    rows, cols = 2, 1
+                elif num_images <= 4:
+                    rows, cols = 2, 2
+                else:
+                    rows, cols = 3, 2
+                
+                # cell dimensions with margins
+                cell_w = area_w / cols
+                cell_h = area_h / rows
+                margin = Inches(0.1)
+                
+                for idx, image_path in enumerate(image_paths):
+                    # Download if URL
+                    if image_path.startswith('http'):
+                        from utils.image_helper import download_image
+                        cached_path = download_image(image_path)
+                        if cached_path:
+                            image_path = cached_path
+                    
+                    if image_path and os.path.exists(image_path):
+                        try:
+                            # Calculate grid position
+                            row = idx // cols
+                            col = idx % cols
+                            
+                            # Center point of the cell
+                            center_x = area_x + (col * cell_w) + (cell_w / 2)
+                            center_y = area_y + (row * cell_h) + (cell_h / 2)
+                            
+                            # Max dimensions for this image
+                            max_w = cell_w - margin
+                            max_h = cell_h - margin
+                            
+                            # Get actual image size to preserve aspect ratio
+                            with PILImage.open(image_path) as img:
+                                img_w, img_h = img.size
+                                aspect_ratio = img_w / img_h
+                            
+                            # Calculate dimensions fitting within max_w/max_h
+                            # Try fitting to width
+                            final_w = max_w
+                            final_h = final_w / aspect_ratio
+                            
+                            # If too tall, fit to height instead
+                            if final_h > max_h:
+                                final_h = max_h
+                                final_w = final_h * aspect_ratio
+                            
+                            # Position top-left corner
+                            pos_x = center_x - (final_w / 2)
+                            pos_y = center_y - (final_h / 2)
+                            
+                            slide.shapes.add_picture(image_path, pos_x, pos_y, width=final_w, height=final_h)
+                            
+                        except Exception as e:
+                            logger.error(f"  Failed to add image {idx + 1}: {e}")
+            except ImportError:
+                 logger.error("PIL not installed, defaulting to basic image layout")
+                 # Fallback to simple single image
+                 if image_paths:
+                     try:
+                         slide.shapes.add_picture(image_paths[0], Inches(0.5), Inches(1.8), width=Inches(4.5))
+                     except: pass
+
         
-        # Details box (right side) - adjusted position for taller header
-        details_box = slide.shapes.add_textbox(Inches(5.2), Inches(1.8), Inches(4.3), Inches(5.0))
+        # Details box (right side) - adjusted position for taller header and multi-budget
+        details_y = image_area_y  # Match image area Y position
+        details_box = slide.shapes.add_textbox(Inches(5.2), details_y, Inches(4.3), Inches(4.5) if is_multibudget else Inches(5.0))
         details_frame = details_box.text_frame
         details_frame.word_wrap = True
         
@@ -791,45 +948,48 @@ class PresentationGenerator:
         
         # Full description paragraph - dynamically adjust font size based on length
         desc_p = details_frame.add_paragraph()
-        desc_p.text = item['description']
+        # Truncate description if extremely long for PPT
+        clean_desc = item['description']
+        if len(clean_desc) > 800:
+             clean_desc = clean_desc[:797] + "..."
+        desc_p.text = clean_desc
         
         # Adjust font size based on description length
-        desc_length = len(item['description'])
-        if desc_length > 800:
+        desc_length = len(clean_desc)
+        if desc_length > 600:
             desc_p.font.size = Pt(9)
-        elif desc_length > 500:
+        elif desc_length > 400:
             desc_p.font.size = Pt(10)
-        elif desc_length > 300:
+        elif desc_length > 200:
             desc_p.font.size = Pt(11)
         else:
-            desc_p.font.size = Pt(13)
+            desc_p.font.size = Pt(12)
         
         desc_p.font.color.rgb = RGBColor(51, 51, 51)  # Dark text
-        desc_p.space_after = Pt(8 if desc_length > 500 else 10)
+        desc_p.space_after = Pt(8)
         
         # Key Details - professional text only (no icons)
         p = details_frame.add_paragraph()
         p.text = f"Brand: {item['brand']}"
-        p.font.size = Pt(13)
+        p.font.size = Pt(12)
         p.font.bold = True
-        p.space_after = Pt(6)
+        p.space_after = Pt(4)
         
         p = details_frame.add_paragraph()
         p.text = f"Quantity: {item['qty']} {item['unit']}"
-        p.font.size = Pt(13)
-        p.space_after = Pt(12)
+        p.font.size = Pt(12)
+        p.space_after = Pt(10)
         
         # Specifications heading
         p = details_frame.add_paragraph()
         p.text = "Specifications:"
-        p.font.size = Pt(16)
+        p.font.size = Pt(14)
         p.font.bold = True
         p.font.color.rgb = RGBColor(26, 54, 93)
-        p.space_after = Pt(8)
+        p.space_after = Pt(6)
         
         # Add specifications (limit based on description length to fit page)
-        desc_length = len(item['description'])
-        max_specs = 3 if desc_length > 500 else 5 if desc_length > 300 else 6
+        max_specs = 3 if desc_length > 500 else 4 if desc_length > 300 else 5
         
         for spec in item['specifications'][:max_specs]:
             p = details_frame.add_paragraph()
@@ -837,26 +997,26 @@ class PresentationGenerator:
             p.font.size = Pt(10 if desc_length > 500 else 11)
             p.font.color.rgb = RGBColor(51, 51, 51)
             p.level = 1
-            p.space_after = Pt(2 if desc_length > 500 else 3)
+            p.space_after = Pt(2)
         
-        # Warranty section (bottom left area)
-        warranty_box = slide.shapes.add_textbox(Inches(0.6), Inches(6.2), Inches(4.0), Inches(0.6))
+        # Warranty section (bottom left area) - SMALLER TEXT
+        warranty_box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(4.0), Inches(0.5))
         warranty_frame = warranty_box.text_frame
         warranty_frame.word_wrap = True
         
         # Warranty heading
         warranty_title = warranty_frame.paragraphs[0]
         warranty_title.text = "Warranty"
-        warranty_title.font.size = Pt(14)
+        warranty_title.font.size = Pt(10) # Smaller
         warranty_title.font.bold = True
         warranty_title.font.color.rgb = RGBColor(26, 54, 93)
-        warranty_title.space_after = Pt(4)
+        warranty_title.space_after = Pt(2)
         
         # Warranty content
         warranty_content = warranty_frame.add_paragraph()
         warranty_content.text = "As per manufacturer - 5 years"
-        warranty_content.font.size = Pt(11)
-        warranty_content.font.color.rgb = RGBColor(51, 51, 51)
+        warranty_content.font.size = Pt(9) # Smaller text
+        warranty_content.font.color.rgb = RGBColor(80, 80, 80)
         
         # Footer with website
         footer_box = slide.shapes.add_textbox(Inches(3), Inches(7), Inches(4), Inches(0.3))
@@ -876,11 +1036,38 @@ class PresentationGenerator:
         story.append(Paragraph(item_title, self.item_title_style))
         story.append(Spacer(1, 0.3*inch))
         
+        # For multi-budget: Add reference image in upper left
+        is_multibudget = item.get('is_multibudget', False)
+        reference_image_path = item.get('reference_image_path')
+        if is_multibudget and reference_image_path:
+            try:
+                # Download if URL
+                if reference_image_path.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(reference_image_path)
+                    if cached_path:
+                        reference_image_path = cached_path
+                
+                if reference_image_path and os.path.exists(reference_image_path):
+                    # Small reference image in upper left
+                    ref_img = RLImage(reference_image_path, width=1.0*inch, height=0.75*inch)
+                    # Position it using a table
+                    ref_table = Table([[ref_img, Paragraph("Reference Image", ParagraphStyle('RefLabel', fontSize=8, textColor=colors.grey))]], 
+                                     colWidths=[1.0*inch, 1.5*inch])
+                    ref_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                    ]))
+                    story.append(ref_table)
+                    story.append(Spacer(1, 0.1*inch))
+            except Exception as e:
+                logger.warning(f"Could not add reference image to PDF: {e}")
+        
         # Create two-column layout
         left_content = []
         right_content = []
         
-        # Left: Image
+        # Left: Selected product image (bigger for multi-budget)
         image_path = item.get('image_path')
         if image_path:
             # If it's a URL, download it first

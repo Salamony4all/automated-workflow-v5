@@ -2628,7 +2628,7 @@
             transform: scale(1.05);
             box-shadow: 0 20px 60px rgba(46, 89, 132, 0.35);
         }
-        
+
         .upload-area.uploading {
             pointer-events: none;
             opacity: 0.6;
@@ -4167,8 +4167,13 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         /* Thumbnail hover effect */
@@ -4178,7 +4183,7 @@
             transition: all 0.2s ease;
         }
     </style>
-    
+
     <!-- Progress Popup Functions - Must be defined before table_manager.js loads -->
     <script>
         /**
@@ -4188,7 +4193,7 @@
             // Remove existing popup if any
             const existing = document.getElementById('progress-popup');
             if (existing) existing.remove();
-            
+
             const popup = document.createElement('div');
             popup.id = 'progress-popup';
             popup.innerHTML = `
@@ -4229,7 +4234,7 @@
             const progressBar = document.getElementById('progress-bar');
             const progressPercentage = document.getElementById('progress-percentage');
             const progressMessage = document.getElementById('progress-message');
-            
+
             if (progressBar) progressBar.style.width = `${percentage}%`;
             if (progressPercentage) progressPercentage.textContent = `${Math.round(percentage)}%`;
             if (message && progressMessage) progressMessage.textContent = message;
@@ -4243,7 +4248,7 @@
             if (popup) popup.remove();
         }
     </script>
-    
+
     <script src="/static/js/table_manager.js?v={{ now }}"></script>
     <script>
         // Check for workflow from landing page or showHero flag
@@ -5030,12 +5035,14 @@
                         <span id="uploadSettingsToggle" style="color: #888;">▼</span>
                     </div>
                     <div id="uploadSettingsPanel" style="display: none; margin-top: 15px;">
-                        <div style="margin-bottom: 15px; padding: 12px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <label for="upload-setting-extractionMethod" style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.95em;">
+                        <div
+                            style="margin-bottom: 15px; padding: 12px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <label for="upload-setting-extractionMethod"
+                                style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.95em;">
                                 🔧 Extraction Method
                             </label>
-                            <select id="upload-setting-extractionMethod" 
-                                    style="width: 100%; padding: 8px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.9em; cursor: pointer;">
+                            <select id="upload-setting-extractionMethod"
+                                style="width: 100%; padding: 8px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.9em; cursor: pointer;">
                                 <option value="pdfplumber" selected>PDFPlumber (Local)</option>
                                 <option value="pp-structure">PP-StructureV3 API (Cloud)</option>
                             </select>
@@ -5350,25 +5357,29 @@
                         Close</button>
                 </div>
                 <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-                    <div style="margin-bottom: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
-                        <label for="setting-extractionMethod" style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 8px; font-size: 1em;">
+                    <div
+                        style="margin-bottom: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
+                        <label for="setting-extractionMethod"
+                            style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 8px; font-size: 1em;">
                             🔧 Extraction Method
                         </label>
-                        <select id="setting-extractionMethod" 
-                                style="width: 100%; padding: 10px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.95em; cursor: pointer;">
+                        <select id="setting-extractionMethod"
+                            style="width: 100%; padding: 10px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.95em; cursor: pointer;">
                             <option value="pdfplumber" selected>PDFPlumber (Local - Fast & Reliable)</option>
                             <option value="pp-structure">PP-StructureV3 API (Cloud - Advanced OCR)</option>
                         </select>
                         <p style="color: #888; margin-top: 8px; font-size: 0.85em; line-height: 1.4;">
                             <strong>PDFPlumber:</strong> Local extraction, works offline, faster for simple tables.<br>
-                            <strong>PP-StructureV3 API:</strong> Cloud-based AI extraction, better for complex layouts and OCR.
+                            <strong>PP-StructureV3 API:</strong> Cloud-based AI extraction, better for complex layouts
+                            and OCR.
                         </p>
                     </div>
                     <p style="color: #888; margin-bottom: 20px; font-size: 0.9em;">
                         These settings match the configuration from the example JSON that produced clean extractions.
                         Modify only if needed for specific document types.
                     </p>
-                    <div id="ppStructureSettings" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <div id="ppStructureSettings"
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <input type="checkbox" id="setting-useDocPreprocessor"
                                 style="width: 18px; height: 18px; cursor: pointer;">
@@ -5754,6 +5765,72 @@
                 <button class="btn btn-warning" onclick="generateMAS()">📋 Generate MAS PDF</button>
             </div>
 
+            <!-- Multi-Budget Costing Card (Separate from regular costing) -->
+            <div class="card" id="multiBudgetCostingCard" style="display:none;">
+                <h2>Apply Costing Factors - Multi-Budget</h2>
+                <div class="costing-card">
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Net Margin (%)</span>
+                            <span class="factor-value" id="mbNetMarginValue">0%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="0" step="0.5" class="slider" id="mbNetMarginSlider">
+                    </div>
+
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Freight (%)</span>
+                            <span class="factor-value" id="mbFreightValue">0%</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="0" step="0.5" class="slider" id="mbFreightSlider">
+                    </div>
+
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Customs (%)</span>
+                            <span class="factor-value" id="mbCustomsValue">0%</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="0" step="0.5" class="slider" id="mbCustomsSlider">
+                    </div>
+
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Installation (%)</span>
+                            <span class="factor-value" id="mbInstallationValue">0%</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="0" step="0.5" class="slider" id="mbInstallationSlider">
+                    </div>
+
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Exchange Rate</span>
+                            <span class="factor-value" id="mbExchangeRateValue">1.00</span>
+                        </div>
+                        <input type="range" min="0.1" max="10" value="1" step="0.01" class="slider" id="mbExchangeRateSlider">
+                    </div>
+
+                    <div class="factor-control">
+                        <div class="factor-label">
+                            <span>Additional (%)</span>
+                            <span class="factor-value" id="mbAdditionalValue">0%</span>
+                        </div>
+                        <input type="range" min="0" max="50" value="0" step="0.5" class="slider" id="mbAdditionalSlider">
+                    </div>
+
+                    <div class="costing-actions">
+                        <button class="btn btn-primary" onclick="applyMultiBudgetCosting()">🎯 Apply Costing</button>
+                        <button class="btn btn-secondary" onclick="toggleMultiBudgetCostingCard()" style="margin-left: 10px;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Budget Costed Preview Card (Separate from regular costing preview) -->
+            <div class="card" id="multiBudgetCostedPreviewCard" style="display:none;">
+                <h2>📊 Costed Table Preview - <span id="mbCostedTierName"></span></h2>
+                <div id="multiBudgetCostedTableContent"></div>
+                <div class="summary-section" id="multiBudgetCostingSummary"></div>
+            </div>
+
             <!-- Multi-Budget Card -->
             <div class="card" id="multiBudgetCard" style="display:none;">
                 <h2>💰 Multi-Budget Offers</h2>
@@ -5829,8 +5906,19 @@
                     </div>
                 </div>
 
+                <!-- Apply Costing Button -->
+                <div style="margin-top: 20px; text-align: center; border-top: 2px solid #1a365d; padding-top: 20px;">
+                    <button class="btn btn-success" onclick="toggleMultiBudgetCostingCard()"
+                        style="min-width: 250px; font-weight: bold; font-size: 1.1em; box-shadow: 0 4px 10px rgba(0,0,0,0.2); background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                        💰 Apply Costing to Table
+                    </button>
+                    <p style="color: #64748b; font-size: 0.9em; margin-top: 10px;">
+                        Apply margin, customs, and other factors to the prices in the table above.
+                    </p>
+                </div>
+
                 <!-- Export Buttons -->
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #1a365d;">
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
                     <h3 style="color: #1a365d; margin-bottom: 15px;">Export Options</h3>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="btn btn-info" onclick="exportMultiBudget('offer', 'pdf')"
@@ -6407,14 +6495,14 @@
                     <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #f1f1f1; font-size: 16px; text-align: center; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 8px;">Click anywhere to close</div>
                 `;
                 document.body.appendChild(modal);
-                modal.onclick = function() { closeImageModal(); };
+                modal.onclick = function () { closeImageModal(); };
             }
-            
+
             // Show modal with image
             document.getElementById('modalImage').src = imagePath;
             modal.style.display = 'block';
         }
-        
+
         function closeImageModal() {
             const modal = document.getElementById('imageModal');
             if (modal) modal.style.display = 'none';
@@ -6680,34 +6768,34 @@
                         console.warn('Upload already in progress, skipping duplicate');
                         return;
                     }
-                    
+
                     // Mark as uploading
                     this.dataset.uploading = 'true';
-                    
+
                     // Show upload progress popup (similar to file generation popup)
                     const uploadPopup = showProgressPopup('Preparing upload...');
                     updateProgressPopup(0, 'Starting upload...');
 
                     // Upload files to backend
                     uploadedFiles = [];
-                    
+
                     for (let i = 0; i < files.length; i++) {
                         const file = files[i];
                         try {
                             // Update progress - uploading phase (30%)
                             const uploadProgress = Math.round(((i + 0.3) / files.length) * 100);
                             updateProgressPopup(uploadProgress, `📤 Uploading: ${file.name} (${Math.round(file.size / 1024)} KB)`);
-                            
+
                             const result = await uploadFileSimple(file);
                             console.log('Upload result:', result);
-                            
+
                             // Update progress - extraction phase (70%)
                             const extractProgress = Math.round(((i + 0.7) / files.length) * 100);
                             updateProgressPopup(extractProgress, `🔍 Extracting tables from: ${file.name}`);
-                            
+
                             // Small delay to show extraction message
                             await new Promise(resolve => setTimeout(resolve, 300));
-                            
+
                             if (result && result.success) {
                                 uploadedFiles.push({
                                     id: result.file_id,
@@ -6716,7 +6804,7 @@
                                     extraction_success: result.extraction_success,
                                     extraction_error: result.extraction_error
                                 });
-                                
+
                                 // Update progress to completed for this file (100%)
                                 const finalProgress = Math.round(((i + 1) / files.length) * 100);
                                 updateProgressPopup(finalProgress, `✅ Success: Extracted ${file.name} (${result.tables_found || 0} tables found)`);
@@ -6733,28 +6821,28 @@
                     console.log('Uploaded files array:', uploadedFiles);
 
                     console.log('🔥🔥🔥 NEW CODE LOADED - CHECKING LENGTH 🔥🔥🔥');
-                    
+
                     // Mark as no longer uploading
                     this.dataset.uploading = 'false';
 
                     console.log('About to check uploadedFiles.length:', uploadedFiles.length);
                     console.log('Condition check:', uploadedFiles.length > 0);
-                    
+
                     if (uploadedFiles.length > 0) {
                         console.log('Processing uploaded files for auto-display...');
-                        
+
                         // Update progress popup to 100%
                         updateProgressPopup(100, `🎉 Complete! Processing ${uploadedFiles.length} file(s) - Displaying tables...`);
-                        
+
                         // Keep the progress display visible for a moment
                         await new Promise(resolve => setTimeout(resolve, 1000));
-                        
+
                         // Auto-display extracted tables for each uploaded file
                         for (const uploadedFile of uploadedFiles) {
                             console.log('Checking file for auto-display:', uploadedFile);
                             console.log('  - id:', uploadedFile.id);
                             console.log('  - extraction_success:', uploadedFile.extraction_success);
-                            
+
                             if (uploadedFile.id && uploadedFile.extraction_success) {
                                 console.log('Auto-displaying tables for file:', uploadedFile.id);
                                 // Call the auto-stitch function
@@ -6772,18 +6860,18 @@
                                 console.log('Skipping auto-display: extraction_success =', uploadedFile.extraction_success);
                             }
                         }
-                        
+
                         // Close the popup
                         closeProgressPopup();
-                        
+
                         // Show success notification
                         showUploadNotification('Success!', `✓ ${uploadedFiles.length} file(s) extracted successfully!`, '✅');
-                        
+
                         // File list refresh removed as uploaded files card is no longer displayed
                     } else {
                         // Close popup on error
                         closeProgressPopup();
-                        
+
                         if (fileInfo) {
                             fileInfo.classList.remove('show');
                         }
@@ -7124,6 +7212,12 @@
                         if (typeof window.initializeMultiBudgetButtons === 'function') {
                             window.initializeMultiBudgetButtons();
                         }
+                        // Initialize multi-budget costing sliders
+                        setTimeout(() => {
+                            if (typeof initializeMultiBudgetSliders === 'function') {
+                                initializeMultiBudgetSliders();
+                            }
+                        }, 500);
                     }
                     break;
             }
@@ -7173,11 +7267,11 @@
                 console.warn('Upload already in progress, skipping');
                 return;
             }
-            
+
             const uploadArea = document.getElementById('uploadArea');
             fileInput.dataset.uploading = 'true';
             uploadArea.classList.add('uploading');
-            
+
             console.log('Handling', files.length, 'files');
             try {
                 for (let file of files) {
@@ -7385,10 +7479,10 @@
                         uploadProgressFill.classList.add('error');
                         progressBar.classList.remove('active');
                         const errorDetail = result.extraction_error || 'Unknown error occurred during extraction';
-                        
+
                         // Log full error to console for debugging
                         console.error('Extraction failed with error:', errorDetail);
-                        
+
                         uploadProgressFill.innerHTML = `
                             <div class="progress-text">
                                 <span style="font-size: 1.5em;">❌</span>
@@ -7398,7 +7492,7 @@
                                 </div>
                             </div>
                         `;
-                        
+
                         // Show detailed error in progress details
                         updateProgress(
                             100,
@@ -7406,9 +7500,9 @@
                             errorDetail,
                             `<strong style="color: #dc2626;">❌ Extraction Error:</strong><br/><div style="background: #fee; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #dc2626;"><strong>Error Details:</strong><br/>${errorDetail}</div><div style="color: #666; margin-top: 10px;">The page will refresh in 5 seconds to allow you to retry with a corrected file...</div>`
                         );
-                        
+
                         showUploadNotification('Extraction Failed', errorDetail, '❌');
-                        
+
                         // Clear session and refresh page after 5 seconds to allow new upload
                         setTimeout(async () => {
                             try {
@@ -7433,10 +7527,10 @@
                 uploadProgressFill.style.width = '0%';
                 uploadProgressFill.classList.add('error');
                 progressBar.classList.remove('active');
-                
+
                 // Log full error to console
                 console.error('Upload error:', error);
-                
+
                 uploadProgressFill.innerHTML = `
                     <div class="progress-text">
                         <span style="font-size: 1.5em;">❌</span>
@@ -7446,16 +7540,16 @@
                         </div>
                     </div>
                 `;
-                
+
                 updateProgress(
                     0,
                     'Upload Failed',
                     error.message,
                     `<strong style="color: #dc2626;">❌ Upload Error:</strong><br/><div style="background: #fee; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #dc2626;"><strong>Error Details:</strong><br/>${error.message}</div><div style="color: #666; margin-top: 10px;">The page will refresh in 5 seconds to allow you to retry...</div>`
                 );
-                
+
                 showUploadNotification('Upload Error', error.message, '❌');
-                
+
                 // Clear session and refresh page after 5 seconds
                 setTimeout(async () => {
                     try {
@@ -7858,7 +7952,7 @@
                                         </p>
                                     </div>
                                 </div>
-                                <div id="editable-table-${fileId}" style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative;">
+                                <div id="editable-table-${fileId}" data-file-id="${fileId}" style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative;">
                         `;
 
                         // Parse and style the stitched table
@@ -8270,7 +8364,7 @@
                 // Show/hide PP-Structure specific settings
                 const ppSettings = uploadSettingsPanel.querySelectorAll('[id^="upload-setting-"]:not([id="upload-setting-extractionMethod"])');
                 ppSettings.forEach(setting => {
-                    if (setting.id.includes('useDocPreprocessor') || setting.id.includes('useSealRecognition') || 
+                    if (setting.id.includes('useDocPreprocessor') || setting.id.includes('useSealRecognition') ||
                         setting.id.includes('useTableRecognition') || setting.id.includes('useFormulaRecognition') ||
                         setting.id.includes('useChartRecognition') || setting.id.includes('useRegionDetection') ||
                         setting.id.includes('formatBlockContent') || setting.id.includes('useTextlineOrientation') ||
@@ -8297,15 +8391,15 @@
         }
 
         // Add event listeners when DOM is ready
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const extractionMethodSelect = document.getElementById('setting-extractionMethod');
             const uploadExtractionMethodSelect = document.getElementById('upload-setting-extractionMethod');
-            
+
             if (extractionMethodSelect) {
                 extractionMethodSelect.addEventListener('change', updateExtractionMethodSettings);
                 updateExtractionMethodSettings(); // Initial call
             }
-            
+
             if (uploadExtractionMethodSelect) {
                 uploadExtractionMethodSelect.addEventListener('change', updateUploadExtractionMethodSettings);
                 updateUploadExtractionMethodSettings(); // Initial call
@@ -8395,11 +8489,11 @@
                 console.log('Extraction method:', settings.extractionMethod);
 
                 // Determine timeout based on extraction method
-                const isApiMethod = settings.extractionMethod === 'pp-structure' || 
-                                   settings.extractionMethod === 'pp-structurev3' || 
-                                   settings.extractionMethod === 'api';
+                const isApiMethod = settings.extractionMethod === 'pp-structure' ||
+                    settings.extractionMethod === 'pp-structurev3' ||
+                    settings.extractionMethod === 'api';
                 const timeout = isApiMethod ? 600000 : 300000; // 10 minutes for API, 5 minutes for pdfplumber
-                
+
                 // Show progress message
                 if (isApiMethod) {
                     extractionSection.innerHTML = '<div class="loading"></div> Processing with PP-StructureV3 API (this may take several minutes for large files)...';
@@ -8441,7 +8535,7 @@
 
                 if (result.success) {
                     displayExtractionResult(fileId, result.result);
-                    const methodName = result.extraction_method === 'pp-structure' || result.extraction_method === 'pp-structurev3' || result.extraction_method === 'api' 
+                    const methodName = result.extraction_method === 'pp-structure' || result.extraction_method === 'pp-structurev3' || result.extraction_method === 'api'
                         ? 'PP-StructureV3 API' : 'PDFPlumber';
                     showAlert(`Extraction completed using ${methodName}! ✓`, 'success');
 
@@ -8465,12 +8559,12 @@
                             const filesResponse = await fetch('/api/files/list');
                             const filesData = await filesResponse.json();
                             const fileExists = filesData.files && filesData.files.some(f => f.id === fileId);
-                            
+
                             if (!fileExists) {
                                 console.warn(`File ${fileId} not found in session, skipping auto-stitch`);
                                 return;
                             }
-                            
+
                             // Check if stitchTables function exists
                             if (typeof stitchTables === 'function') {
                                 await stitchTables(fileId);
@@ -8513,7 +8607,7 @@
             } catch (error) {
                 console.error('Extraction error:', error);
                 let errorMsg = error.message || 'An unexpected error occurred during extraction';
-                
+
                 // Handle timeout specifically
                 if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
                     errorMsg = `Request timed out. The extraction may still be processing on the server. Large files with PP-StructureV3 API can take 5-10 minutes. Please check the server logs or try again later.`;
@@ -8525,14 +8619,14 @@
                 } else {
                     extractionSection.innerHTML = `<div class="alert-error">⚠️ Error: ${errorMsg}</div>`;
                 }
-                
+
                 showAlert(errorMsg, 'error');
                 // Reset status to uploaded
                 if (fileStatusElem) {
                     fileStatusElem.className = 'file-status status-uploaded';
                     fileStatusElem.textContent = 'Uploaded';
                 }
-                
+
                 // Auto-refresh page after 3 seconds to allow new upload
                 setTimeout(() => {
                     window.location.reload();
@@ -8574,17 +8668,17 @@
                     const sheet = result.sheets[sheetName];
                     html += `<div style="margin-bottom: 30px;">
                         <h4 style="color: #b8941f;">📊 Sheet: ${sheetName}</h4>`;
-                    
+
                     if (sheet.error) {
                         html += `<p style="color: #ef4444;">Error: ${sheet.error}</p>`;
                     } else {
                         html += `<p style="color: #888; font-size: 14px;">Rows: ${sheet.shape[0]} | Columns: ${sheet.shape[1]}</p>`;
-                        
+
                         // Display the table
                         if (sheet.html) {
                             let tempDiv = document.createElement('div');
                             tempDiv.innerHTML = sheet.html;
-                            
+
                             // Style the table
                             tempDiv.querySelectorAll('table').forEach(table => {
                                 table.style.width = '100%';
@@ -8620,7 +8714,7 @@
                                     }
                                 });
                             });
-                            
+
                             html += `<div style="overflow-x: auto;">${tempDiv.innerHTML}</div>`;
                         }
                     }
@@ -8629,80 +8723,80 @@
             } else {
                 // Handle the prunedResult format from PP-StructureV3 - but hide it by default
                 result.layoutParsingResults.forEach((layoutResult, idx) => {
-                html += `<div style="margin-bottom: 30px;"><h4 style="color: #b8941f;">Page ${idx + 1}</h4>`;
+                    html += `<div style="margin-bottom: 30px;"><h4 style="color: #b8941f;">Page ${idx + 1}</h4>`;
 
-                // Check if prunedResult exists
-                const prunedResult = layoutResult.prunedResult;
-                if (prunedResult && prunedResult.parsing_res_list) {
-                    // Process each block in the parsing results
-                    prunedResult.parsing_res_list.forEach((block, blockIdx) => {
-                        if (block.block_label === 'table' && block.block_content) {
-                            // Render table content
-                            let tableContent = block.block_content;
+                    // Check if prunedResult exists
+                    const prunedResult = layoutResult.prunedResult;
+                    if (prunedResult && prunedResult.parsing_res_list) {
+                        // Process each block in the parsing results
+                        prunedResult.parsing_res_list.forEach((block, blockIdx) => {
+                            if (block.block_label === 'table' && block.block_content) {
+                                // Render table content
+                                let tableContent = block.block_content;
 
-                            // Extract and render HTML tables
-                            let tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = tableContent;
+                                // Extract and render HTML tables
+                                let tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = tableContent;
 
-                            // Style all tables
-                            tempDiv.querySelectorAll('table').forEach(table => {
-                                table.style.width = '100%';
-                                table.style.borderCollapse = 'collapse';
-                                table.style.marginTop = '20px';
-                                table.style.marginBottom = '20px';
-                                table.setAttribute('border', '1');
+                                // Style all tables
+                                tempDiv.querySelectorAll('table').forEach(table => {
+                                    table.style.width = '100%';
+                                    table.style.borderCollapse = 'collapse';
+                                    table.style.marginTop = '20px';
+                                    table.style.marginBottom = '20px';
+                                    table.setAttribute('border', '1');
 
-                                // Style cells
-                                table.querySelectorAll('td, th').forEach(cell => {
-                                    cell.style.border = '1px solid #ddd';
-                                    cell.style.padding = '12px';
-                                    cell.style.textAlign = 'left';
-                                    cell.style.verticalAlign = 'middle';
+                                    // Style cells
+                                    table.querySelectorAll('td, th').forEach(cell => {
+                                        cell.style.border = '1px solid #ddd';
+                                        cell.style.padding = '12px';
+                                        cell.style.textAlign = 'left';
+                                        cell.style.verticalAlign = 'middle';
+                                    });
+
+                                    // Style header row
+                                    table.querySelectorAll('th').forEach(th => {
+                                        th.style.backgroundColor = '#d4af37';
+                                        th.style.color = 'white';
+                                        th.style.fontWeight = '600';
+                                    });
+
+                                    // Alternate row colors
+                                    let rows = table.querySelectorAll('tr');
+                                    rows.forEach((row, i) => {
+                                        if (i > 0 && i % 2 === 0) {
+                                            row.style.backgroundColor = '#f8f9fa';
+                                        }
+                                    });
+
+                                    // Style images inside table cells
+                                    table.querySelectorAll('img').forEach(img => {
+                                        img.style.maxWidth = '150px';
+                                        img.style.maxHeight = '150px';
+                                        img.style.width = 'auto';
+                                        img.style.height = 'auto';
+                                        img.style.display = 'block';
+                                        img.style.margin = '5px auto';
+                                        img.style.borderRadius = '4px';
+                                        img.style.cursor = 'pointer';
+                                        img.style.objectFit = 'contain';
+
+                                        // Add click to enlarge
+                                        img.onclick = function () {
+                                            showImage(this.src);
+                                        };
+                                    });
                                 });
 
-                                // Style header row
-                                table.querySelectorAll('th').forEach(th => {
-                                    th.style.backgroundColor = '#d4af37';
-                                    th.style.color = 'white';
-                                    th.style.fontWeight = '600';
-                                });
-
-                                // Alternate row colors
-                                let rows = table.querySelectorAll('tr');
-                                rows.forEach((row, i) => {
-                                    if (i > 0 && i % 2 === 0) {
-                                        row.style.backgroundColor = '#f8f9fa';
-                                    }
-                                });
-
-                                // Style images inside table cells
-                                table.querySelectorAll('img').forEach(img => {
-                                    img.style.maxWidth = '150px';
-                                    img.style.maxHeight = '150px';
-                                    img.style.width = 'auto';
-                                    img.style.height = 'auto';
-                                    img.style.display = 'block';
-                                    img.style.margin = '5px auto';
-                                    img.style.borderRadius = '4px';
-                                    img.style.cursor = 'pointer';
-                                    img.style.objectFit = 'contain';
-
-                                    // Add click to enlarge
-                                    img.onclick = function () {
-                                        showImage(this.src);
-                                    };
-                                });
-                            });
-
-                            html += `<div style="overflow-x: auto;">${tempDiv.innerHTML}</div>`;
-                        } else if (block.block_content) {
-                            // Render other content types as formatted text
-                            html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;"><strong>${block.block_label}:</strong><br><pre style="white-space: pre-wrap; margin-top: 10px;">${block.block_content}</pre></div>`;
-                        }
-                    });
-                }
-                html += '</div>'; // Close page div
-            });
+                                html += `<div style="overflow-x: auto;">${tempDiv.innerHTML}</div>`;
+                            } else if (block.block_content) {
+                                // Render other content types as formatted text
+                                html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;"><strong>${block.block_label}:</strong><br><pre style="white-space: pre-wrap; margin-top: 10px;">${block.block_content}</pre></div>`;
+                            }
+                        });
+                    }
+                    html += '</div>'; // Close page div
+                });
             } // Close else block for non-Excel files
 
             html += '</div>'; // Close raw-data div
@@ -8894,7 +8988,7 @@
                     } else if (format === 'excel') {
                         window.open(`/download/offer/${currentFileIdForCosting}?format=excel`, '_blank');
                     }
-                    
+
                     updateProgressPopup(100, 'Completed!');
                     setTimeout(() => {
                         closeProgressPopup();
@@ -8941,7 +9035,7 @@
                     updateProgressPopup(90, 'Finalizing...');
                     // Download the file
                     window.open(`/download/presentation/${fileId}?format=${format}`, '_blank');
-                    
+
                     updateProgressPopup(100, 'Completed!');
                     setTimeout(() => {
                         closeProgressPopup();
@@ -8961,7 +9055,7 @@
         async function generateMAS(passedFileId) {
             // Use passed fileId parameter, or fallback to currentFileIdForCosting
             const fileId = passedFileId || currentFileIdForCosting;
-            
+
             console.log('generateMAS called - passedFileId:', passedFileId, 'currentFileIdForCosting:', currentFileIdForCosting, 'using fileId:', fileId);
 
             if (!fileId) {
@@ -8986,7 +9080,7 @@
                     updateProgressPopup(90, 'Finalizing...');
                     // Download the file
                     window.open(`/download/mas/${fileId}?format=pdf`, '_blank');
-                    
+
                     updateProgressPopup(100, 'Completed!');
                     setTimeout(() => {
                         closeProgressPopup();
@@ -12027,7 +12121,7 @@
                 let latestFile = null;
 
                 // Look for costed table first, then stitched table in preview area
-                const previewTables = document.querySelectorAll('.preview-container table, #preview-quote-pricelist table, #preview-multi-budget table, #costedTableContent table');
+                const previewTables = document.querySelectorAll('.preview-container table, #extractedTablesContainer table, #preview-quote-pricelist table, #preview-multi-budget table, #costedTableContent table');
 
                 if (previewTables.length > 0) {
                     // Get the first/last visible table
@@ -12051,7 +12145,8 @@
                     try {
                         // Fetch uploaded files from server with timeout
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                        // Increased timeout to 30 minutes to allow ample time for image processing/download
+                        const timeoutId = setTimeout(() => controller.abort(), 1800000);
 
                         const response = await fetch('/api/files/list', { signal: controller.signal });
                         clearTimeout(timeoutId);
@@ -12228,6 +12323,11 @@
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = tableHTML;
                 let table = tempDiv.querySelector('table');
+
+                // Remove redundant Action columns from extraction (if present)
+                if (table) {
+                    table.querySelectorAll('.action-column-header, .action-column-cell').forEach(el => el.remove());
+                }
 
                 if (!table) {
                     alert('Could not parse table');
@@ -12488,6 +12588,25 @@
                                 cell.style.textAlign = 'center';
                                 cell.querySelectorAll('img').forEach(img => {
                                     img.style.cssText = 'max-width: 80px; max-height: 80px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer;';
+
+                                    // Fix relative image paths for extracted images
+                                    try {
+                                        let src = img.getAttribute('src');
+                                        if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+                                            const sessionId = "{{ session.get('session_id') }}";
+                                            const fileId = fileInfo ? fileInfo.id : null;
+
+                                            console.log('Resolving image:', src, 'Session:', sessionId, 'File:', fileId);
+
+                                            if (sessionId && fileId) {
+                                                const newSrc = `/outputs/${sessionId}/${fileId}/imgs/${src}`;
+                                                img.src = newSrc;
+                                            } else {
+                                                console.warn('Cannot resolve image: missing session or file ID');
+                                            }
+                                        }
+                                    } catch (e) { console.error('Error fixing image path:', e); }
+
                                     img.onclick = function () {
                                         if (typeof showImage === 'function') {
                                             showImage(this.src);
@@ -12558,7 +12677,7 @@
                                 const brandDescCell = document.createElement('td');
                                 brandDescCell.className = 'brand-description-cell';
                                 brandDescCell.dataset.rowId = rowId;
-                                brandDescCell.style.cssText = 'padding: 8px 6px; border: 1px solid #e2e8f0; vertical-align: middle; background: #fff; width: 15%; min-width: 150px; max-width: 300px; font-size: 0.85em; line-height: 1.4; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; white-space: normal;';
+                                brandDescCell.style.cssText = 'padding: 8px 6px; border: 1px solid #e2e8f0; vertical-align: middle; background: #fff; width: 20%; min-width: 200px; max-width: 400px; font-size: 0.85em; line-height: 1.4; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word; white-space: normal !important;';
                                 const newImageIndex = Array.from(row.children).findIndex(cell => cell.classList.contains('brand-image-cell'));
                                 if (newImageIndex >= 0) {
                                     row.insertBefore(brandDescCell, row.children[newImageIndex + 1]);
@@ -12577,9 +12696,9 @@
                                     existingCell.style.wordWrap = 'break-word';
                                     existingCell.style.wordBreak = 'break-word';
                                     existingCell.style.overflowWrap = 'break-word';
-                                    existingCell.style.whiteSpace = 'normal';
-                                    existingCell.style.maxWidth = '300px';
-                                    existingCell.style.minWidth = '150px';
+                                    existingCell.style.setProperty('white-space', 'normal', 'important');
+                                    existingCell.style.maxWidth = '400px';
+                                    existingCell.style.minWidth = '200px';
                                     existingCell.style.lineHeight = '1.4';
                                 }
                             }
@@ -12637,6 +12756,18 @@
                             // Clear row and rebuild with correct order
                             row.innerHTML = '';
                             cellsToKeep.forEach(cell => row.appendChild(cell));
+
+                            // Fill gap if row is shorter than header position for Product Selection
+                            // This prevents misalignment and "ghost columns"
+                            if (productSelectionHeaderIndex >= 0 && productSelectionHeaderIndex > cellsToKeep.length) {
+                                const gap = productSelectionHeaderIndex - cellsToKeep.length;
+                                for (let k = 0; k < gap; k++) {
+                                    const filler = document.createElement('td');
+                                    filler.className = 'filler-cell';
+                                    filler.style.cssText = 'padding: 8px 6px; border: 1px solid #e2e8f0; background: #fff;';
+                                    row.appendChild(filler);
+                                }
+                            }
 
                             // Add Product Selection cell
                             const productSelectionCell = document.createElement('td');
@@ -13299,6 +13430,11 @@
                                         // Escape description for HTML
                                         const escapedDesc = description.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                         descCell.innerHTML = escapedDesc;
+                                        // Ensure text wrapping
+                                        descCell.style.whiteSpace = 'normal';
+                                        descCell.style.wordWrap = 'break-word';
+                                        descCell.style.minWidth = '200px';
+
                                         // Make sure it's editable for CREATE NEW BOQ
                                         if (!hasBrandDescHeader) {
                                             descCell.contentEditable = 'true';
@@ -13319,8 +13455,8 @@
                                 // Find and update Price cell
                                 const priceIndex = headers.findIndex(th => {
                                     const text = th.textContent.toLowerCase().trim();
-                                    return (text.includes('price') || text.includes('rate')) &&
-                                        !text.includes('total') && !text.includes('unit');
+                                    return (text.includes('price') || text.includes('rate') || text.includes('unit rate')) &&
+                                        !text.includes('total');
                                 });
 
                                 if (priceIndex >= 0 && priceIndex < cells.length) {
@@ -13329,6 +13465,7 @@
                                         const priceValue = parseFloat(price);
                                         if (!isNaN(priceValue)) {
                                             priceCell.textContent = priceValue.toFixed(2);
+                                            priceCell.dataset.basePrice = priceValue; // Store base price for costing
                                             priceCell.contentEditable = 'true';
                                         } else {
                                             priceCell.textContent = '';
@@ -13362,8 +13499,8 @@
                                 // Clear Price cell if no model selected
                                 const priceIndex = headers.findIndex(th => {
                                     const text = th.textContent.toLowerCase().trim();
-                                    return (text.includes('price') || text.includes('rate')) &&
-                                        !text.includes('total') && !text.includes('unit');
+                                    return (text.includes('price') || text.includes('rate') || text.includes('unit rate')) &&
+                                        !text.includes('total');
                                 });
 
                                 if (priceIndex >= 0 && priceIndex < cells.length) {
@@ -13443,6 +13580,11 @@
 
         // Make calculateRowTotal globally accessible
         window.calculateRowTotal = calculateRowTotal;
+        
+        // Make multi-budget costing functions globally accessible
+        window.toggleMultiBudgetCostingCard = toggleMultiBudgetCostingCard;
+        window.applyMultiBudgetCosting = applyMultiBudgetCosting;
+        window.initializeMultiBudgetSliders = initializeMultiBudgetSliders;
 
         // Add row function - Simply clone existing row structure and clear content
         function addRow(rowId, tier) {
@@ -13588,17 +13730,110 @@
             });
         }
 
-        // Export multi-budget tables (excludes Product Selection and Actions columns)
+        // Export multi-budget tables (excludes Product Selection and Actions columns) - Separate from regular exports
         async function exportMultiBudget(type, format) {
-            const table = multiBudgetTables[currentBudgetTier]?.table;
-            if (!table) {
-                alert('No table data to export. Please generate a table first.');
-                return;
-            }
-
+            let popup = null;
             try {
+                const formatName = format === 'pdf' ? 'PDF' : format === 'excel' ? 'Excel' : format.toUpperCase();
+                const typeName = type === 'offer' ? 'Offer' : type === 'presentation' ? 'Presentation' : 'MAS';
+                
+                // Show progress popup with percentage
+                popup = showProgressPopup(`Preparing ${typeName} ${formatName}...`);
+                updateProgressPopup(10, `Preparing ${typeName} ${formatName}...`);
+
+                const table = multiBudgetTables[currentBudgetTier]?.table;
+                if (!table) {
+                    throw new Error('No table data to export. Please generate a table first.');
+                }
+
+                updateProgressPopup(20, 'Extracting table data...');
+
                 // Clone table HTML and send to backend for filtering
                 const tableHTML = table.outerHTML;
+
+                updateProgressPopup(30, 'Storing table data...');
+
+                // Extract product selections with Brand Image and Brand Description from table
+                const productSelections = [];
+                const tbody = table.querySelector('tbody');
+                if (tbody) {
+                    const rows = tbody.querySelectorAll('tr');
+                    rows.forEach((row, rowIdx) => {
+                        const dropdowns = row.querySelector('.product-selection-dropdowns');
+                        if (dropdowns) {
+                            const brandSelect = dropdowns.querySelector('.brand-dropdown');
+                            const categorySelect = dropdowns.querySelector('.category-dropdown');
+                            const subcategorySelect = dropdowns.querySelector('.subcategory-dropdown');
+                            const modelSelect = dropdowns.querySelector('.model-dropdown');
+                            
+                            if (brandSelect && categorySelect && modelSelect && 
+                                brandSelect.value && categorySelect.value && modelSelect.value) {
+                                
+                                const selection = {
+                                    row_index: rowIdx,
+                                    brand: brandSelect.value,
+                                    category: categorySelect.value,
+                                    subcategory: subcategorySelect?.value || 'general',
+                                    model: modelSelect.value
+                                };
+                                
+                                // Extract Brand Image HTML
+                                const brandImageCell = row.querySelector('.brand-image-cell');
+                                if (!brandImageCell) {
+                                    // Try to find by header
+                                    const headerRow = table.querySelector('thead tr') || table.querySelector('tbody tr');
+                                    if (headerRow) {
+                                        const headers = Array.from(headerRow.children);
+                                        const brandImageIndex = headers.findIndex(th => 
+                                            th.textContent.toLowerCase().includes('brand image'));
+                                        if (brandImageIndex >= 0) {
+                                            const cells = Array.from(row.children);
+                                            if (brandImageIndex < cells.length) {
+                                                const cell = cells[brandImageIndex];
+                                                if (cell && cell.innerHTML.includes('<img')) {
+                                                    selection.brand_image_html = cell.innerHTML;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    selection.brand_image_html = brandImageCell.innerHTML;
+                                }
+                                
+                                // Extract Brand Description
+                                const brandDescCell = row.querySelector('.brand-description-cell');
+                                if (!brandDescCell) {
+                                    // Try to find by header
+                                    const headerRow = table.querySelector('thead tr') || table.querySelector('tbody tr');
+                                    if (headerRow) {
+                                        const headers = Array.from(headerRow.children);
+                                        const brandDescIndex = headers.findIndex(th => 
+                                            th.textContent.toLowerCase().includes('brand description'));
+                                        if (brandDescIndex >= 0) {
+                                            const cells = Array.from(row.children);
+                                            if (brandDescIndex < cells.length) {
+                                                const cell = cells[brandDescIndex];
+                                                if (cell) {
+                                                    const desc = cell.textContent.trim();
+                                                    if (desc && !desc.toLowerCase().includes('no description')) {
+                                                        selection.brand_description = desc;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    const desc = brandDescCell.textContent.trim();
+                                    if (desc && !desc.toLowerCase().includes('no description')) {
+                                        selection.brand_description = desc;
+                                    }
+                                }
+                                
+                                productSelections.push(selection);
+                            }
+                        }
+                    });
+                }
 
                 // Store table in backend (backend will filter out Product Selection and Actions columns)
                 const storeResponse = await fetch('/api/multibudget/store-table', {
@@ -13608,16 +13843,19 @@
                     },
                     body: JSON.stringify({
                         tier: currentBudgetTier,
-                        table_html: tableHTML
+                        table_html: tableHTML,
+                        // Include product selections with Brand Image and Brand Description
+                        product_selections: productSelections
                     })
                 });
 
                 const storeResult = await storeResponse.json();
 
                 if (!storeResult.success) {
-                    alert('Error preparing export: ' + storeResult.error);
-                    return;
+                    throw new Error(storeResult.error || 'Failed to prepare export');
                 }
+
+                updateProgressPopup(50, `Generating ${typeName} ${formatName}...`);
 
                 // Export using filtered table
                 const exportResponse = await fetch(`/api/multibudget/export/${currentBudgetTier}`, {
@@ -13631,24 +13869,470 @@
                     })
                 });
 
+                updateProgressPopup(80, 'Finalizing document...');
+
                 if (exportResponse.ok) {
                     // Download file
                     const blob = await exportResponse.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${type}_${currentBudgetTier}.${format === 'excel' ? 'xlsx' : format}`;
+                    // Try to get filename from header
+                    const disposition = exportResponse.headers.get('Content-Disposition');
+                    let filename = `multibudget_${type}_${currentBudgetTier}.${format === 'excel' ? 'xlsx' : format}`;
+                    if (disposition && disposition.indexOf('attachment') !== -1) {
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                        const matches = filenameRegex.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
+
+                    updateProgressPopup(100, 'Completed!');
+                    setTimeout(() => {
+                        closeProgressPopup();
+                        showAlert(`Your ${typeName} ${formatName} is ready.`, 'success');
+                    }, 800);
                 } else {
                     const error = await exportResponse.json();
-                    alert('Export error: ' + (error.error || 'Failed to export'));
+                    throw new Error(error.error || 'Failed to export');
                 }
             } catch (error) {
+                if (popup) closeProgressPopup();
                 console.error('Export error:', error);
-                alert('Error exporting: ' + error.message);
+                showAlert(`Export Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Toggle Multi-Budget Costing Card (Separate from regular costing)
+        function toggleMultiBudgetCostingCard() {
+            const costingCard = document.getElementById('multiBudgetCostingCard');
+            if (costingCard) {
+                if (costingCard.style.display === 'none' || !costingCard.style.display) {
+                    costingCard.style.display = 'block';
+                    costingCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    // Initialize sliders if not already done
+                    initializeMultiBudgetSliders();
+                } else {
+                    costingCard.style.display = 'none';
+                }
+            }
+        }
+
+        // Apply Multi-Budget Costing (Separate from regular costing)
+        async function applyMultiBudgetCosting() {
+            const tableData = multiBudgetTables[currentBudgetTier];
+            if (!tableData || !tableData.table) {
+                showAlert('Table not found. Please generate a table first.', 'error');
+                return;
+            }
+
+            let popup = null;
+            try {
+                // Show progress popup
+                popup = showProgressPopup('Applying Costing Factors...');
+                updateProgressPopup(10, 'Extracting table data...');
+
+                const table = tableData.table;
+                const tableDataExtracted = extractMultiBudgetTableData(table);
+
+                // Get factors from sliders
+                const factors = {
+                    net_margin: parseFloat(document.getElementById('mbNetMarginSlider').value) || 0,
+                    freight: parseFloat(document.getElementById('mbFreightSlider').value) || 0,
+                    customs: parseFloat(document.getElementById('mbCustomsSlider').value) || 0,
+                    installation: parseFloat(document.getElementById('mbInstallationSlider').value) || 0,
+                    exchange_rate: parseFloat(document.getElementById('mbExchangeRateSlider').value) || 1.0,
+                    additional: parseFloat(document.getElementById('mbAdditionalSlider').value) || 0
+                };
+
+                updateProgressPopup(40, 'Applying costing factors...');
+
+                // Call backend costing engine
+                const response = await fetch(`/api/multibudget/apply-costing/${currentBudgetTier}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        factors: factors,
+                        table_data: tableDataExtracted
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to apply costing');
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to apply costing');
+                }
+
+                updateProgressPopup(70, 'Updating table...');
+
+                // Update original table with costed values
+                applyCostedDataToTable(currentBudgetTier, result.result);
+
+                updateProgressPopup(80, 'Creating preview...');
+
+                // Show costed table preview
+                displayMultiBudgetCostedPreview(currentBudgetTier, result.result, result.summary);
+
+                updateProgressPopup(90, 'Calculating summary...');
+
+                // Hide costing card and show preview
+                const costingCard = document.getElementById('multiBudgetCostingCard');
+                if (costingCard) {
+                    costingCard.style.display = 'none';
+                }
+
+                updateProgressPopup(100, 'Costing Applied!');
+                setTimeout(() => {
+                    closeProgressPopup();
+                    showAlert('✅ Costing factors applied successfully!', 'success');
+                }, 800);
+            } catch (error) {
+                if (popup) closeProgressPopup();
+                console.error('Costing error:', error);
+                showAlert('Error: ' + (error.message || 'Failed to apply costing factors'), 'error');
+            }
+        }
+
+        // Initialize Multi-Budget Sliders (Separate from regular costing sliders)
+        function initializeMultiBudgetSliders() {
+            const sliders = {
+                netMargin: document.getElementById('mbNetMarginSlider'),
+                freight: document.getElementById('mbFreightSlider'),
+                customs: document.getElementById('mbCustomsSlider'),
+                installation: document.getElementById('mbInstallationSlider'),
+                exchangeRate: document.getElementById('mbExchangeRateSlider'),
+                additional: document.getElementById('mbAdditionalSlider')
+            };
+
+            if (!sliders.netMargin) {
+                console.log('Multi-budget sliders not found yet');
+                return;
+            }
+
+            // Set initial values
+            document.getElementById('mbNetMarginValue').textContent = sliders.netMargin.value + '%';
+            document.getElementById('mbFreightValue').textContent = sliders.freight.value + '%';
+            document.getElementById('mbCustomsValue').textContent = sliders.customs.value + '%';
+            document.getElementById('mbInstallationValue').textContent = sliders.installation.value + '%';
+            document.getElementById('mbExchangeRateValue').textContent = parseFloat(sliders.exchangeRate.value).toFixed(2);
+            document.getElementById('mbAdditionalValue').textContent = sliders.additional.value + '%';
+
+            // Add event listeners
+            sliders.netMargin.addEventListener('input', (e) => {
+                document.getElementById('mbNetMarginValue').textContent = e.target.value + '%';
+            });
+
+            sliders.freight.addEventListener('input', (e) => {
+                document.getElementById('mbFreightValue').textContent = e.target.value + '%';
+            });
+
+            sliders.customs.addEventListener('input', (e) => {
+                document.getElementById('mbCustomsValue').textContent = e.target.value + '%';
+            });
+
+            sliders.installation.addEventListener('input', (e) => {
+                document.getElementById('mbInstallationValue').textContent = e.target.value + '%';
+            });
+
+            sliders.exchangeRate.addEventListener('input', (e) => {
+                document.getElementById('mbExchangeRateValue').textContent = parseFloat(e.target.value).toFixed(2);
+            });
+
+            sliders.additional.addEventListener('input', (e) => {
+                document.getElementById('mbAdditionalValue').textContent = e.target.value + '%';
+            });
+
+            console.log('Multi-budget costing sliders initialized successfully');
+        }
+
+        // Display Multi-Budget Costed Preview (Separate from regular costing preview)
+        function displayMultiBudgetCostedPreview(tier, costedTable, summary) {
+            const previewCard = document.getElementById('multiBudgetCostedPreviewCard');
+            if (!previewCard) return;
+
+            // Set tier name
+            const tierName = tier.charAt(0).toUpperCase() + tier.slice(1).replace('-', ' ');
+            document.getElementById('mbCostedTierName').textContent = tierName;
+
+            // Create table HTML from costed data
+            let tableHTML = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">';
+            
+            // Headers
+            tableHTML += '<thead><tr style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); color: #d4af37;">';
+            costedTable.headers.forEach(header => {
+                tableHTML += `<th style="padding: 12px; border: 1px solid #3a6fa5; text-align: center; font-weight: 600; font-size: 0.9em;">${header}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // Rows
+            costedTable.rows.forEach((row, idx) => {
+                const bgColor = idx % 2 === 0 ? '#ffffff' : '#f8f9fa';
+                tableHTML += `<tr style="background: ${bgColor};">`;
+                costedTable.headers.forEach(header => {
+                    const value = row[header] || '';
+                    // Check if it's an image
+                    if (typeof value === 'string' && value.includes('<img')) {
+                        tableHTML += `<td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${value}</td>`;
+                    } else {
+                        // Format numbers
+                        let displayValue = value;
+                        if (header.toLowerCase().includes('rate') || header.toLowerCase().includes('price') || 
+                            header.toLowerCase().includes('total') || header.toLowerCase().includes('amount')) {
+                            const num = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+                            if (!isNaN(num)) {
+                                displayValue = num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                        tableHTML += `<td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${displayValue}</td>`;
+                    }
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table></div>';
+
+            // Set table content
+            document.getElementById('multiBudgetCostedTableContent').innerHTML = tableHTML;
+
+            // Display summary
+            const summaryHTML = `
+                <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 8px; color: white;">
+                    <h3 style="color: #d4af37; margin-top: 0; margin-bottom: 15px;">💰 Costing Summary</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">Subtotal</div>
+                            <div style="font-size: 1.3em; font-weight: bold; color: #d4af37;">${summary.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">VAT (5%)</div>
+                            <div style="font-size: 1.3em; font-weight: bold; color: #d4af37;">${summary.vat.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">Grand Total</div>
+                            <div style="font-size: 1.5em; font-weight: bold; color: #d4af37;">${summary.grand_total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('multiBudgetCostingSummary').innerHTML = summaryHTML;
+
+            // Show preview card
+            previewCard.style.display = 'block';
+            previewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Extract table data for multi-budget costing (separate from regular costing)
+        function extractMultiBudgetTableData(table) {
+            const headers = [];
+            const rows = [];
+
+            // Extract headers
+            const headerRow = table.querySelector('thead tr') || table.querySelector('tbody tr:first-child');
+            if (!headerRow) return { headers: [], rows: [] };
+
+            Array.from(headerRow.children).forEach((th, idx) => {
+                const text = th.textContent.trim();
+                // Skip Product Selection and Actions columns
+                if (!text.toLowerCase().includes('product selection') && 
+                    !text.toLowerCase().includes('actions') &&
+                    !th.querySelector('.product-selection-dropdowns') &&
+                    !th.querySelector('button')) {
+                    headers.push(text);
+                }
+            });
+
+            // Extract rows
+            const tbody = table.querySelector('tbody');
+            if (tbody) {
+                const dataRows = tbody.querySelectorAll('tr');
+                dataRows.forEach((row, rowIdx) => {
+                    const cells = Array.from(row.children);
+                    const rowData = {};
+                    let colIndex = 0;
+
+                    cells.forEach((cell, cellIdx) => {
+                        // Skip Product Selection and Actions cells
+                        if (cell.classList.contains('product-selection-cell') ||
+                            cell.classList.contains('actions-cell') ||
+                            cell.querySelector('.product-selection-dropdowns') ||
+                            cell.querySelector('button')) {
+                            return;
+                        }
+
+                        if (colIndex < headers.length) {
+                            const header = headers[colIndex];
+                            // Check if cell contains an image
+                            const img = cell.querySelector('img');
+                            if (img && img.src) {
+                                rowData[header] = cell.innerHTML; // Keep HTML for images
+                            } else {
+                                rowData[header] = cell.textContent.trim();
+                            }
+                            colIndex++;
+                        }
+                    });
+
+                    if (Object.keys(rowData).length > 0) {
+                        rows.push(rowData);
+                    }
+                });
+            }
+
+            return { headers, rows };
+        }
+
+        // Apply costed data back to table (separate from regular costing)
+        function applyCostedDataToTable(tier, costedTable) {
+            const tableData = multiBudgetTables[tier];
+            if (!tableData || !tableData.table) {
+                console.error('Table not found for tier:', tier);
+                return;
+            }
+
+            const table = tableData.table;
+            const headerRow = table.querySelector('thead tr') || table.querySelector('tbody tr:first-child');
+            if (!headerRow) return;
+
+            const headers = Array.from(headerRow.children);
+            
+            // Find column indices
+            const headerTexts = Array.from(headerRow.children).map(th => th.textContent.trim());
+            
+            // Find Unit Rate and Total column indices
+            const rateIndex = headerTexts.findIndex(text => {
+                const lower = text.toLowerCase();
+                return (lower.includes('rate') || lower.includes('price') || lower.includes('unit')) &&
+                       !lower.includes('total');
+            });
+            
+            const totalIndex = headerTexts.findIndex(text => {
+                const lower = text.toLowerCase();
+                return lower.includes('total') || lower.includes('amount');
+            });
+
+            const qtyIndex = headerTexts.findIndex(text => {
+                const lower = text.toLowerCase();
+                return (lower.includes('qty') || lower.includes('quantity')) && !lower.includes('unit');
+            });
+
+            // Update rows with costed data
+            const tbody = table.querySelector('tbody');
+            if (tbody && costedTable.rows) {
+                const rows = tbody.querySelectorAll('tr');
+                costedTable.rows.forEach((costedRow, idx) => {
+                    if (idx < rows.length) {
+                        const row = rows[idx];
+                        const cells = Array.from(row.children);
+                        
+                        // Filter out Product Selection and Actions cells for indexing
+                        const dataCells = cells.filter(cell => 
+                            !cell.classList.contains('product-selection-cell') &&
+                            !cell.classList.contains('actions-cell') &&
+                            !cell.querySelector('.product-selection-dropdowns') &&
+                            !cell.querySelector('button')
+                        );
+
+                        // Update all columns from costed data - map by header name
+                        costedTable.headers.forEach((header, headerIdx) => {
+                            if (costedRow[header] !== undefined && dataCells[headerIdx]) {
+                                // Check if this is an image column
+                                if (typeof costedRow[header] === 'string' && costedRow[header].includes('<img')) {
+                                    dataCells[headerIdx].innerHTML = costedRow[header];
+                                } else {
+                                    dataCells[headerIdx].textContent = costedRow[header];
+                                }
+                            }
+                        });
+
+                        // Recalculate total (Qty * Unit Rate = Total) - ensure it's correct
+                        if (qtyIndex >= 0 && rateIndex >= 0 && totalIndex >= 0) {
+                            // Get values from costed data
+                            const qtyHeader = costedTable.headers.find(h => {
+                                const lower = h.toLowerCase();
+                                return (lower.includes('qty') || lower.includes('quantity')) && !lower.includes('unit');
+                            });
+                            const rateHeader = costedTable.headers.find(h => {
+                                const lower = h.toLowerCase();
+                                return (lower.includes('rate') || lower.includes('price') || lower.includes('unit')) &&
+                                       !lower.includes('total');
+                            });
+                            const totalHeader = costedTable.headers.find(h => {
+                                const lower = h.toLowerCase();
+                                return lower.includes('total') || lower.includes('amount');
+                            });
+                            
+                            if (qtyHeader && rateHeader && totalHeader) {
+                                const qtyValue = parseFloat(String(costedRow[qtyHeader] || 0).replace(/[^0-9.-]/g, '') || 0);
+                                const rateValue = parseFloat(String(costedRow[rateHeader] || 0).replace(/[^0-9.-]/g, '') || 0);
+                                const total = qtyValue * rateValue;
+                                
+                                // Update in costed row
+                                costedRow[totalHeader] = total.toFixed(2);
+                                
+                                // Update in table cell
+                                const totalHeaderIndex = costedTable.headers.indexOf(totalHeader);
+                                if (totalHeaderIndex >= 0 && dataCells[totalHeaderIndex]) {
+                                    dataCells[totalHeaderIndex].textContent = total.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Display costing summary for multi-budget
+        function displayMultiBudgetCostingSummary(summary) {
+            // Remove existing summary if any
+            const existingSummary = document.getElementById('multibudget-costing-summary');
+            if (existingSummary) {
+                existingSummary.remove();
+            }
+
+            // Create summary element
+            const summaryDiv = document.createElement('div');
+            summaryDiv.id = 'multibudget-costing-summary';
+            summaryDiv.style.cssText = 'margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 8px; color: white;';
+            summaryDiv.innerHTML = `
+                <h3 style="color: #d4af37; margin-top: 0; margin-bottom: 15px;">💰 Costing Summary</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">Subtotal</div>
+                        <div style="font-size: 1.3em; font-weight: bold; color: #d4af37;">${summary.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">VAT (5%)</div>
+                        <div style="font-size: 1.3em; font-weight: bold; color: #d4af37;">${summary.vat.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">Grand Total</div>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #d4af37;">${summary.grand_total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    </div>
+                </div>
+            `;
+
+            // Insert summary after the table
+            const multiBudgetCard = document.getElementById('multiBudgetCard');
+            if (multiBudgetCard) {
+                const tableContainer = multiBudgetCard.querySelector('.table-container') || 
+                                     multiBudgetCard.querySelector('table')?.parentElement;
+                if (tableContainer) {
+                    tableContainer.parentElement.insertBefore(summaryDiv, tableContainer.nextSibling);
+                } else {
+                    multiBudgetCard.appendChild(summaryDiv);
+                }
             }
         }
 
@@ -13666,6 +14350,10 @@
                     // Initialize brand dropdowns for current tier
                     setTimeout(() => {
                         updateBrandDropdownsForTier(currentBudgetTier);
+                        // Initialize multi-budget costing sliders
+                        if (typeof initializeMultiBudgetSliders === 'function') {
+                            initializeMultiBudgetSliders();
+                        }
                     }, 500);
                 }
             };
@@ -13723,27 +14411,27 @@
                 `;
                 document.body.appendChild(modal);
             }
-            
+
             // Set image source and show modal
             const modalImg = document.getElementById('modalImage');
             modalImg.src = imageSrc;
             modal.style.display = 'flex';
-            
+
             // Close on click outside
-            modal.onclick = function(event) {
+            modal.onclick = function (event) {
                 if (event.target === modal) {
                     closeImageModal();
                 }
             };
         }
-        
+
         function closeImageModal() {
             const modal = document.getElementById('imageModal');
             if (modal) {
                 modal.style.display = 'none';
             }
         }
-        
+
         function downloadModalImage() {
             const modalImg = document.getElementById('modalImage');
             if (modalImg && modalImg.src) {
@@ -13755,9 +14443,9 @@
                 document.body.removeChild(link);
             }
         }
-        
+
         // Close modal on Escape key
-        document.addEventListener('keydown', function(event) {
+        document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 closeImageModal();
             }
@@ -13776,16 +14464,16 @@
                 // Show progress popup
                 popup = showProgressPopup(`Preparing ${actionName}...`);
                 updateProgressPopup(10, `Preparing ${actionName}...`);
-                
+
                 // Get table data from DOM
                 const table = document.getElementById(`table-${fileId}`);
                 if (!table) {
                     throw new Error('Table not found');
                 }
-                
+
                 updateProgressPopup(20, 'Extracting table data...');
                 const tableData = extractTableData(table);
-                
+
                 // Apply zero costing factors
                 updateProgressPopup(40, 'Applying costing factors...');
                 const response = await fetch(`/apply-zero-costing/${fileId}`, {
@@ -13793,27 +14481,27 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ table_data: tableData })
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || 'Failed to apply zero costing');
                 }
-                
+
                 const result = await response.json();
                 if (!result.success) {
                     throw new Error(result.error || 'Failed to apply zero costing');
                 }
-                
+
                 // Execute the callback function
                 updateProgressPopup(60, `Generating ${actionName}...`);
                 await callback(fileId);
-                
+
                 updateProgressPopup(100, `${actionName} completed!`);
                 setTimeout(() => {
                     closeProgressPopup();
                     showAlert(`✅ ${actionName} generated successfully!`, 'success');
                 }, 800);
-                
+
             } catch (error) {
                 console.error(`Error in ${actionName}:`, error);
                 closeProgressPopup();
@@ -13827,7 +14515,7 @@
         function extractTableData(table) {
             const headers = [];
             const rows = [];
-            
+
             // Extract headers
             const headerRow = table.rows[0];
             for (let i = 0; i < headerRow.cells.length; i++) {
@@ -13836,13 +14524,13 @@
                     headers.push(cell.textContent.trim());
                 }
             }
-            
+
             // Extract rows
             for (let i = 1; i < table.rows.length; i++) {
                 const row = table.rows[i];
                 const rowData = {};
                 let colIndex = 0;
-                
+
                 for (let j = 0; j < row.cells.length; j++) {
                     const cell = row.cells[j];
                     if (!cell.classList.contains('action-column-cell')) {
@@ -13855,13 +14543,13 @@
                             // Just store text for non-image cells
                             rowData[headers[colIndex]] = cell.textContent.trim();
                         }
-                        
+
                         colIndex++;
                     }
                 }
                 rows.push(rowData);
             }
-            
+
             return { headers, rows };
         }
 
@@ -13874,12 +14562,12 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || 'Failed to generate offer PDF');
                 }
-                
+
                 const result = await response.json();
                 if (result.success && result.file_path) {
                     showAlert('✅ Offer PDF generated successfully!', 'success');
@@ -13917,12 +14605,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ format: 'pptx' })
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || 'Failed to generate presentation');
                 }
-                
+
                 const result = await response.json();
                 if (result.success && result.file_path) {
                     showAlert('✅ Presentation generated successfully!', 'success');
@@ -13949,12 +14637,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ format: 'pdf' })
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || 'Failed to generate presentation PDF');
                 }
-                
+
                 const result = await response.json();
                 if (result.success && result.file_path) {
                     showAlert('✅ Presentation PDF generated successfully!', 'success');
@@ -13980,12 +14668,12 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || 'Failed to generate MAS');
                 }
-                
+
                 const result = await response.json();
                 if (result.success && result.file_path) {
                     showAlert('✅ MAS generated successfully!', 'success');

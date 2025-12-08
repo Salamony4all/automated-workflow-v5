@@ -109,14 +109,21 @@ class MASGenerator:
         if not file_info:
             raise Exception('File not found')
         
+        # Check if this is multi-budget and get product selections
+        is_multibudget = file_info.get('multibudget', False)
+        product_selections = file_info.get('product_selections', []) if is_multibudget else []
+        tier = file_info.get('tier', 'budgetary') if is_multibudget else None
+        
         # Priority: costed_data -> stitched_table -> extraction_result
         items = []
         session_id = session.get('session_id', '')
         
         if 'costed_data' in file_info:
-            items = self.parse_items_from_costed_data(file_info['costed_data'], session, file_id)
+            items = self.parse_items_from_costed_data(file_info['costed_data'], session, file_id,
+                                                      is_multibudget, product_selections, tier)
         elif 'stitched_table' in file_info:
-            items = self.parse_items_from_stitched_table(file_info['stitched_table'], session, file_id)
+            items = self.parse_items_from_stitched_table(file_info['stitched_table'], session, file_id,
+                                                        is_multibudget, product_selections, tier)
         elif 'extraction_result' in file_info:
             items = self.parse_items_from_extraction(file_info['extraction_result'], session, file_id)
         else:
@@ -148,17 +155,19 @@ class MASGenerator:
         
         return output_file
     
-    def parse_items_from_costed_data(self, costed_data, session, file_id):
+    def parse_items_from_costed_data(self, costed_data, session, file_id, is_multibudget=False,
+                                     product_selections=None, tier=None):
         """Parse items from costed data"""
         items = []
         session_id = costed_data.get('session_id', session.get('session_id', ''))
+        product_selections = product_selections or []
         
         tables = costed_data.get('tables', [])
         for table in tables:
             rows = table.get('rows', [])
             headers = table.get('headers', [])
             
-            for row in rows:
+            for row_idx, row in enumerate(rows):
                 description = ''
                 qty = ''
                 unit = ''
@@ -166,26 +175,71 @@ class MASGenerator:
                 
                 # Iterate through row dictionary items
                 image_paths = []
+                reference_image_paths = []
                 description_found = False
                 
-                # First pass: look for DESCRIPTION column specifically
+                # First pass: look for Brand Description, Brand Image, and reference images
+                selected_product_image = None  # For multi-budget: Brand Image from costed table
+                
+                # PRIORITY 1: For multi-budget, FIRST check for Brand Description and Brand Image
+                if is_multibudget:
+                    for header, cell_value in row.items():
+                        header_str = str(header) if header else ''
+                        header_lower = header_str.lower().strip()
+                        cell_value = str(cell_value) if cell_value else ''
+                        
+                        # Brand Description - highest priority for multi-budget
+                        if not description_found:
+                            # Check multiple variations of Brand Description header
+                            if (header_lower == 'brand description' or 
+                                header_lower == 'branddescription' or
+                                (header_lower.startswith('brand') and 'description' in header_lower)):
+                                description = re.sub(r'<[^>]+>', ' ', cell_value).strip()
+                                description = re.sub(r'\s+', ' ', description)  # Normalize whitespace
+                                if description and description.strip() and 'no description' not in description.lower():
+                                    description_found = True
+                                    logger.info(f"MAS: Found BRAND DESCRIPTION column '{header}' (length: {len(description)}): {description[:150]}...")
+                                    break  # Found it, stop looking
+                        
+                        # Brand Image - highest priority for multi-budget
+                        if not selected_product_image:
+                            # Check multiple variations of Brand Image header
+                            if (header_lower == 'brand image' or 
+                                header_lower == 'brandimage' or
+                                (header_lower.startswith('brand') and 'image' in header_lower and 'description' not in header_lower)):
+                                if '<img' in cell_value:
+                                    paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                                    if paths:
+                                        selected_product_image = paths[0]  # Use first Brand Image
+                                        logger.info(f"MAS: Found BRAND IMAGE column '{header}' for multi-budget")
+                
+                # Second pass: Extract other fields (images, description fallback)
                 for header, cell_value in row.items():
                     header_str = str(header) if header else ''
-                    header_lower = header_str.lower()
+                    header_lower = header_str.lower().strip()
                     cell_value = str(cell_value) if cell_value else ''
                     
-                    # Check for image in cell - extract ALL images
-                    if '<img' in cell_value:
+                    # Check for reference image in indicative image column (for multi-budget)
+                    if is_multibudget:
+                        # Look for indicative/reference image column (not Brand Image)
+                        if (('indicative' in header_lower and 'image' in header_lower) or 
+                            ('image' in header_lower and 'brand' not in header_lower and 'product' not in header_lower)):
+                            if '<img' in cell_value:
+                                paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                                if paths:
+                                    reference_image_paths.extend(paths)
+                    # Check for other images (non-reference) - only if not multi-budget
+                    elif not is_multibudget and '<img' in cell_value:
                         paths = self.extract_all_image_paths(cell_value, session_id, file_id)
                         if paths:
                             image_paths.extend(paths)
                     
-                    # Priority: DESCRIPTION column first
-                    if ('descript' in header_lower or 'discript' in header_lower) and not description_found:
+                    # Priority: DESCRIPTION column (fallback ONLY if Brand Description not found)
+                    if not description_found and ('descript' in header_lower or 'discript' in header_lower) and 'brand' not in header_lower:
                         description = re.sub(r'<[^>]+>', ' ', cell_value).strip()
                         description = re.sub(r'\s+', ' ', description)  # Normalize whitespace
                         description_found = True
-                        logger.info(f"MAS: Found DESCRIPTION (length: {len(description)}): {description[:150]}...")
+                        logger.info(f"MAS: Found DESCRIPTION (fallback) (length: {len(description)}): {description[:150]}...")
                 
                 # Second pass: other fields and fallback for description
                 for header, cell_value in row.items():
@@ -204,18 +258,32 @@ class MASGenerator:
                     elif 'unit' in header_lower and 'rate' not in header_lower:
                         unit = re.sub(r'<[^>]+>', '', cell_value)
                 
-                if description:
-                    brand = self.extract_brand(description)
-                    specifications = self.extract_specifications(description)
+                # For multi-budget: download Brand Image if it's a URL
+                if is_multibudget and selected_product_image and selected_product_image.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(selected_product_image)
+                    if cached_path:
+                        selected_product_image = cached_path
+                
+                # Use Brand Description and Brand Image from costed table for multi-budget
+                final_description = description  # Already extracted Brand Description above for multi-budget
+                final_image_paths = [selected_product_image] if (is_multibudget and selected_product_image) else (image_paths if image_paths else [])
+                
+                if final_description:
+                    brand = self.extract_brand(final_description)
+                    specifications = self.extract_specifications(final_description)
                     
                     item = {
-                        'description': description,
+                        'description': final_description,
                         'qty': qty,
                         'unit': unit,
                         'brand': brand,
                         'specifications': specifications,
-                        'image_path': image_paths[0] if image_paths else None,
-                        'image_paths': image_paths,
+                        'image_path': final_image_paths[0] if final_image_paths else None,  # Selected product image (big)
+                        'image_paths': final_image_paths,  # Selected product images
+                        'reference_image_path': reference_image_paths[0] if reference_image_paths else None,  # Reference image (small)
+                        'reference_image_paths': reference_image_paths,  # All reference images
+                        'is_multibudget': is_multibudget,  # Flag to indicate multi-budget
                         'finish': 'As per manufacturer standard',
                         'warranty': '5 Years'
                     }
@@ -223,10 +291,12 @@ class MASGenerator:
         
         return items
     
-    def parse_items_from_stitched_table(self, stitched_table, session, file_id):
+    def parse_items_from_stitched_table(self, stitched_table, session, file_id, is_multibudget=False,
+                                        product_selections=None, tier=None):
         """Parse items from stitched HTML table"""
         items = []
         session_id = session.get('session_id', '')
+        product_selections = product_selections or []
         
         html_content = stitched_table.get('html', '')
         if not html_content:
@@ -252,7 +322,7 @@ class MASGenerator:
                 headers.append(header_text)
         
         # Process data rows
-        for row in rows[1:]:
+        for row_idx, row in enumerate(rows[1:]):
             cells = row.find_all('td')
             if not cells:
                 continue
@@ -277,40 +347,82 @@ class MASGenerator:
             description = ''
             qty = ''
             unit = ''
-            image_path = None
+            reference_image_paths = []
+            selected_product_image = None  # For multi-budget: Brand Image from costed table
+            description_found = False
             
             for header, cell_value in row_data.items():
                 # Ensure header is a string
                 header_str = str(header).lower() if header else ''
                 
-                # Check for images
-                if '<img' in str(cell_value):
+                # For multi-budget: Priority 1 - Brand Description from costed table
+                if is_multibudget and not description_found:
+                    if 'brand description' in header_str or header_str == 'brand description':
+                        description = re.sub(r'<[^>]+>', ' ', str(cell_value)).strip()
+                        description = re.sub(r'\s+', ' ', description)  # Normalize whitespace
+                        if description and description.strip() and 'no description' not in description.lower():
+                            description_found = True
+                            logger.info(f"MAS Stitched: Found BRAND DESCRIPTION (length: {len(description)}): {description[:150]}...")
+                
+                # For multi-budget: Priority 1 - Brand Image from costed table
+                if is_multibudget and not selected_product_image:
+                    if 'brand image' in header_str or header_str == 'brand image':
+                        if '<img' in str(cell_value):
+                            img_path = self.extract_image_path(str(cell_value), session_id, file_id)
+                            if img_path:
+                                selected_product_image = img_path
+                                logger.info(f"MAS Stitched: Found BRAND IMAGE column '{header}' for multi-budget")
+                
+                # Check for reference images in indicative image column (for multi-budget)
+                if is_multibudget and (('indicative' in header_str and 'image' in header_str) or 
+                                      ('image' in header_str and 'brand' not in header_str and 'product' not in header_str)):
+                    if '<img' in str(cell_value):
+                        img_path = self.extract_image_path(str(cell_value), session_id, file_id)
+                        if img_path:
+                            reference_image_paths.append(img_path)
+                # Check for other images (non-reference)
+                elif '<img' in str(cell_value) and not is_multibudget:
                     img_path = self.extract_image_path(str(cell_value), session_id, file_id)
                     if img_path:
-                        image_path = img_path
+                        reference_image_paths.append(img_path)
                 
                 # Clean text
                 cell_text = re.sub(r'<[^>]+>', '', str(cell_value)).strip()
                 
-                # Map to fields
-                if any(h in header_str for h in ['descript', 'discript', 'item', 'product']):  # Handle misspelling
+                # Map to fields (fallback if Brand Description not found)
+                if not description_found and any(h in header_str for h in ['descript', 'discript', 'item', 'product']) and 'brand' not in header_str:
                     description = cell_text
                 elif 'qty' in header_str or 'quantity' in header_str:
                     qty = cell_text
                 elif 'unit' in header_str and 'rate' not in header_str:
                     unit = cell_text
             
-            if description:
-                brand = self.extract_brand(description)
-                specifications = self.extract_specifications(description)
+            # For multi-budget: download Brand Image if it's a URL
+            if is_multibudget and selected_product_image and selected_product_image.startswith('http'):
+                from utils.image_helper import download_image
+                cached_path = download_image(selected_product_image)
+                if cached_path:
+                    selected_product_image = cached_path
+            
+            # Use Brand Description and Brand Image from costed table for multi-budget
+            final_description = description  # Already extracted Brand Description above for multi-budget
+            final_image_paths = [selected_product_image] if (is_multibudget and selected_product_image) else (reference_image_paths if reference_image_paths else [])
+            
+            if final_description:
+                brand = self.extract_brand(final_description)
+                specifications = self.extract_specifications(final_description)
                 
                 item = {
-                    'description': description,
+                    'description': final_description,
                     'qty': qty,
                     'unit': unit,
                     'brand': brand,
                     'specifications': specifications,
-                    'image_path': image_path,
+                    'image_path': final_image_paths[0] if final_image_paths else None,  # Selected product image (big)
+                    'image_paths': final_image_paths,  # Selected product images
+                    'reference_image_path': reference_image_paths[0] if reference_image_paths else None,  # Reference image (small)
+                    'reference_image_paths': reference_image_paths,  # All reference images
+                    'is_multibudget': is_multibudget,  # Flag to indicate multi-budget
                     'finish': 'As per manufacturer standard',
                     'warranty': '5 Years'
                 }
@@ -449,6 +561,34 @@ class MASGenerator:
         story.append(details_table)
         story.append(Spacer(1, 0.08*inch))  # Reduced from 0.15
         
+        # For multi-budget: Add small reference image on the right side below item details table
+        is_multibudget = item.get('is_multibudget', False)
+        reference_image_path = item.get('reference_image_path')
+        if is_multibudget and reference_image_path:
+            try:
+                # Download if URL
+                if reference_image_path.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(reference_image_path)
+                    if cached_path:
+                        reference_image_path = cached_path
+                
+                if reference_image_path and os.path.exists(reference_image_path):
+                    # Small reference image on the right side with label below
+                    ref_img = RLImage(reference_image_path, width=0.8*inch, height=0.6*inch)
+                    ref_label = Paragraph("Reference Image", ParagraphStyle('RefLabel', fontSize=7, textColor=colors.grey, alignment=2))  # alignment=2 is RIGHT
+                    # Create a table with empty left column and reference image on right
+                    ref_table = Table([['', ref_img], ['', ref_label]], colWidths=[5.0*inch, 0.8*inch])
+                    ref_table.setStyle(TableStyle([
+                        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ]))
+                    story.append(ref_table)
+                    story.append(Spacer(1, 0.05*inch))
+            except Exception as e:
+                logger.warning(f"Could not add reference image to MAS: {e}")
+        
         # Product image section - support multiple images in grid
         image_title = Paragraph('<b>PRODUCT IMAGE(S)</b>', self.header_style)
         story.append(image_title)
@@ -461,7 +601,7 @@ class MASGenerator:
         if image_paths:
             # Process and display images
             valid_images = []
-            for image_path in image_paths[:4]:  # Max 4 images per item (reduced from 6)
+            for image_path in image_paths[:9]:  # Max 9 images (increased from 4)
                 # If it's a URL, download it first
                 if image_path.startswith('http'):
                     from utils.image_helper import download_image
@@ -472,19 +612,23 @@ class MASGenerator:
                 if image_path and os.path.exists(image_path):
                     valid_images.append(image_path)
             
-            # Create image grid if multiple images - MUCH SMALLER to fit on one page
-            if len(valid_images) == 1:
-                # Single image - smaller than before
+            # Adaptive Grid System
+            num_images = len(valid_images)
+            
+            if num_images == 0:
+                pass
+            elif num_images == 1:
+                # Single large image
                 try:
                     from PIL import Image as PILImage
                     pil_img = PILImage.open(valid_images[0])
                     img_width, img_height = pil_img.size
                     aspect_ratio = img_height / img_width
-                    target_width = 1.8 * inch  # Reduced from 2.5
+                    target_width = 3.5 * inch  # Large single image
                     target_height = target_width * aspect_ratio
-                    # Cap max height to prevent overflow
-                    if target_height > 1.8 * inch:
-                        target_height = 1.8 * inch
+                    # Cap max height
+                    if target_height > 3.0 * inch:
+                        target_height = 3.0 * inch
                         target_width = target_height / aspect_ratio
                     img = RLImage(valid_images[0], width=target_width, height=target_height)
                     img.hAlign = 'CENTER'
@@ -492,39 +636,64 @@ class MASGenerator:
                 except Exception as e:
                     logger.error(f"Failed to add image: {e}")
             
-            elif len(valid_images) > 1:
-                # Multiple images - create grid (2 columns) - MUCH SMALLER
+            else:
+                # multiple images
                 try:
                     from PIL import Image as PILImage
                     image_elements = []
+                    
+                    # Determine columns based on image count
+                    if num_images <= 4:
+                        cols = 2
+                        col_width = 3.5 * inch
+                        max_img_width = 3.2 * inch
+                        max_img_height = 2.2 * inch
+                    else:
+                        cols = 3
+                        col_width = 2.3 * inch
+                        max_img_width = 2.1 * inch
+                        max_img_height = 1.6 * inch # Reduce height for 3 rows to fit page
                     
                     for img_path in valid_images:
                         pil_img = PILImage.open(img_path)
                         img_width, img_height = pil_img.size
                         aspect_ratio = img_height / img_width
-                        target_width = 1.2 * inch  # Reduced from 1.8
+                        
+                        target_width = max_img_width
                         target_height = target_width * aspect_ratio
-                        # Cap max height
-                        if target_height > 1.2 * inch:
-                            target_height = 1.2 * inch
+                        
+                        # strict height cap to ensure page fit
+                        if target_height > max_img_height:
+                            target_height = max_img_height
                             target_width = target_height / aspect_ratio
+                            
                         img_elem = RLImage(img_path, width=target_width, height=target_height)
                         image_elements.append(img_elem)
                     
-                    # Arrange in rows of 2
+                    # Create grid rows
                     img_table_data = []
-                    for i in range(0, len(image_elements), 2):
-                        if i + 1 < len(image_elements):
-                            img_table_data.append([image_elements[i], image_elements[i+1]])
-                        else:
-                            img_table_data.append([image_elements[i], ''])
+                    current_row = []
+                    for i, img in enumerate(image_elements):
+                        current_row.append(img)
+                        if len(current_row) == cols:
+                            img_table_data.append(current_row)
+                            current_row = []
                     
-                    img_table = Table(img_table_data, colWidths=[3.5*inch, 3.5*inch])
+                    # Fill last row with empty strings if not full
+                    if current_row:
+                        while len(current_row) < cols:
+                            current_row.append('')
+                        img_table_data.append(current_row)
+                    
+                    # Create table
+                    img_table = Table(img_table_data, colWidths=[col_width] * cols)
                     img_table.setStyle(TableStyle([
                         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-                        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+                        ('TOPPADDING', (0, 0), (-1, -1), 2),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
                     ]))
                     story.append(img_table)
                 except Exception as e:

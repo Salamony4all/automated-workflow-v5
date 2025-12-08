@@ -2,7 +2,7 @@
 
 async function stitchTables(fileId) {
     const stitchResult = document.getElementById(`stitch-result-${fileId}`);
-    
+
     if (!stitchResult) {
         console.error('Stitch result element not found for file:', fileId);
         showAlert('Error: Could not find result container. Please refresh the page and try again.', 'error');
@@ -76,7 +76,7 @@ async function stitchTables(fileId) {
                             </p>
                         </div>
                     </div>
-                    <div id="editable-table-${fileId}" style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative;">
+                    <div id="editable-table-${fileId}" data-file-id="${fileId}" style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative;">
             `;
 
             // Parse and style the stitched table
@@ -323,10 +323,10 @@ async function stitchTables(fileId) {
                 // Make images draggable
                 const imagesInTable = table.querySelectorAll('img');
                 console.log(`[DEBUG] Found ${imagesInTable.length} images in table after styling`);
-                
+
                 imagesInTable.forEach((img, idx) => {
                     console.log(`[DEBUG] Processing image ${idx + 1}: src="${img.src}"`);
-                    
+
                     img.style.maxWidth = '100px';
                     img.style.maxHeight = '100px';
                     img.style.width = 'auto';
@@ -360,7 +360,7 @@ async function stitchTables(fileId) {
                         this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                     };
                 });
-                
+
                 if (imagesInTable.length === 0) {
                     console.warn('[DEBUG] NO IMAGES FOUND in table after processing!');
                     // Check cells for image HTML
@@ -703,7 +703,7 @@ async function generatePresentation() {
 
 async function generateMASFromCosting() {
     console.log('generateMASFromCosting called - currentFileIdForCosting:', currentFileIdForCosting);
-    
+
     if (!currentFileIdForCosting) {
         showAlert('Please select a table first', 'error');
         return;
@@ -725,7 +725,7 @@ async function generateMASFromCosting() {
         if (result.success) {
             updateProgressPopup(90, 'Finalizing...');
             window.open(`/download/mas/${currentFileIdForCosting}?format=pdf`, '_blank');
-            
+
             updateProgressPopup(100, 'Completed!');
             setTimeout(() => {
                 closeProgressPopup();
@@ -1327,36 +1327,36 @@ async function applyZeroCostingAndExecute(fileId, actionName, callback) {
     try {
         // Show progress indicator
         showAlert(`⏳ Preparing ${actionName}...`, 'info');
-        
+
         // Get table data from DOM
         const table = document.getElementById(`table-${fileId}`);
         if (!table) {
             throw new Error('Table not found');
         }
-        
+
         const tableData = extractTableData(table);
-        
+
         // Apply zero costing factors
         const response = await fetch(`/apply-zero-costing/${fileId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table_data: tableData })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to apply zero costing');
         }
-        
+
         const result = await response.json();
         if (!result.success) {
             throw new Error(result.error || 'Failed to apply zero costing');
         }
-        
+
         // Execute the callback function
         showAlert(`✅ Generating ${actionName}...`, 'info');
         await callback(fileId);
-        
+
     } catch (error) {
         console.error(`Error in ${actionName}:`, error);
         showAlert(`❌ Failed to generate ${actionName}: ${error.message}`, 'error');
@@ -1369,7 +1369,7 @@ async function applyZeroCostingAndExecute(fileId, actionName, callback) {
 function extractTableData(table) {
     const headers = [];
     const rows = [];
-    
+
     // Extract headers
     const headerRow = table.rows[0];
     for (let i = 0; i < headerRow.cells.length; i++) {
@@ -1378,13 +1378,13 @@ function extractTableData(table) {
             headers.push(cell.textContent.trim());
         }
     }
-    
+
     // Extract rows
     for (let i = 1; i < table.rows.length; i++) {
         const row = table.rows[i];
         const rowData = {};
         let colIndex = 0;
-        
+
         for (let j = 0; j < row.cells.length; j++) {
             const cell = row.cells[j];
             if (!cell.classList.contains('action-column-cell')) {
@@ -1397,13 +1397,13 @@ function extractTableData(table) {
                     // Just store text for non-image cells
                     rowData[headers[colIndex]] = cell.textContent.trim();
                 }
-                
+
                 colIndex++;
             }
         }
         rows.push(rowData);
     }
-    
+
     return { headers, rows };
 }
 
@@ -1416,12 +1416,12 @@ async function generateOfferPDF(fileId) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to generate offer PDF');
         }
-        
+
         const result = await response.json();
         if (result.success && result.file_path) {
             showAlert('✅ Offer PDF generated successfully!', 'success');
@@ -1459,12 +1459,12 @@ async function generatePresentationPPTX(fileId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ format: 'pptx' })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to generate presentation');
         }
-        
+
         const result = await response.json();
         if (result.success && result.file_path) {
             showAlert('✅ Presentation generated successfully!', 'success');
@@ -1491,12 +1491,12 @@ async function generatePresentationPDF(fileId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ format: 'pdf' })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to generate presentation PDF');
         }
-        
+
         const result = await response.json();
         if (result.success && result.file_path) {
             showAlert('✅ Presentation PDF generated successfully!', 'success');
@@ -1522,12 +1522,12 @@ async function generateMAS(fileId) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to generate MAS');
         }
-        
+
         const result = await response.json();
         if (result.success && result.file_path) {
             showAlert('✅ MAS generated successfully!', 'success');

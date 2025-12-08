@@ -2,13 +2,19 @@ import os
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, KeepInFrame, LongTable
 from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 import json
 from datetime import datetime
 import re
+import logging
+
+import logging
+import html
+
+logger = logging.getLogger(__name__)
 
 class OfferGenerator:
     """Generate offer documents with costing factors applied"""
@@ -102,6 +108,67 @@ class OfferGenerator:
             rightIndent=0,
             wordWrap='CJK'
         )
+    
+    def _sanitize_text(self, text):
+        """Aggressively sanitize text to remove any Python object representations."""
+        if text is None:
+            return ''
+        
+        text = str(text)
+        
+        # Remove ALL Python object representations using regex
+        # Pattern: <ClassName at 0xHEXADDRESS>anything or <ClassName at 0xHEXADDRESS>
+        text = re.sub(r'<[A-Za-z_][A-Za-z0-9_]* at 0x[0-9a-fA-F]+>', '', text)
+        
+        # Also remove patterns like <Paragraph at 0x...>text
+        text = re.sub(r'<\w+ at 0x[0-9a-fA-F]+>', '', text)
+        
+        # Remove any remaining angle brackets that could break XML
+        text = text.replace('<', '').replace('>', '')
+        
+        # Remove 'object at 0x' patterns
+        text = re.sub(r'object at 0x[0-9a-fA-F]+', '', text)
+        
+        # Clean up any resulting double spaces
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+    
+    def _safe_cell(self, text, max_length=200):
+        """Create a safe cell value - just returns sanitized plain string."""
+        text = self._sanitize_text(text)
+        
+        # Limit length
+        if len(text) > max_length:
+            text = text[:max_length-3] + '...'
+        
+        return text
+    
+    def _safe_paragraph(self, text, style, max_length=200, bold=False):
+        """Create a Paragraph with fully sanitized text for proper text wrapping."""
+        # Sanitize first
+        text = self._sanitize_text(text)
+        
+        # Limit length
+        if len(text) > max_length:
+            text = text[:max_length-3] + '...'
+        
+        # If empty after sanitization, use placeholder
+        if not text:
+            text = '-'
+        
+        # Escape for XML/HTML safety (important for ReportLab)
+        text = html.escape(text)
+        
+        # Wrap in bold if requested
+        if bold:
+            text = f"<b>{text}</b>"
+        
+        try:
+            return Paragraph(text, style)
+        except Exception as e:
+            logger.warning(f"Failed to create Paragraph: {e}")
+            return text[:50] if text else '-'
 
     def _get_logo_path(self):
         """Return the best available logo path."""
@@ -167,11 +234,27 @@ class OfferGenerator:
         if not file_info:
             raise Exception('File info not found')
         
-        # Handle multi-budget tables with stitched_table (excludes Product Selection and Actions columns)
-        if 'stitched_table' in file_info and file_info.get('multibudget'):
+        # Priority: costed_data -> stitched_table -> extraction_result
+        # Check if costed_data exists and has valid tables with data
+        costed_data = None
+        if 'costed_data' in file_info and file_info['costed_data']:
+            costed_data_check = file_info['costed_data']
+            # Verify it has the expected structure with tables
+            if isinstance(costed_data_check, dict) and 'tables' in costed_data_check:
+                tables = costed_data_check.get('tables', [])
+                # Check if tables exist and have data
+                if tables and len(tables) > 0:
+                    # Check if first table has rows
+                    if tables[0].get('rows') and len(tables[0]['rows']) > 0:
+                        costed_data = costed_data_check
+                        logger.info(f"Using existing costed data for offer generation (tables: {len(tables)}, rows in first table: {len(tables[0]['rows'])})")
+        
+        # Fallback: Parse from stitched table HTML only if costed_data is not available
+        if not costed_data and ('stitched_table' in file_info and file_info['stitched_table']):
+            logger.info("Parsing stitched table HTML for offer generation (no costed data found)")
             from bs4 import BeautifulSoup
-            html = file_info['stitched_table']['html']
-            soup = BeautifulSoup(html, 'html.parser')
+            html_content = file_info['stitched_table']['html']
+            soup = BeautifulSoup(html_content, 'html.parser')
             table = soup.find('table')
             
             if not table:
@@ -183,9 +266,13 @@ class OfferGenerator:
             if header_row:
                 for th in header_row.find_all(['th', 'td']):
                     header_text = th.get_text(strip=True)
+                    # Sanitize the header text to remove any object representations
+                    header_text = self._sanitize_text(header_text)
                     # Exclude Product Selection and Actions columns
                     if header_text.lower() not in ['action', 'actions', 'product selection', 'productselection']:
                         headers.append(header_text)
+            
+            logger.info(f"Parsed headers from HTML: {headers[:3] if len(headers) > 3 else headers}")
             
             rows = []
             for row in table.find_all('tr')[1:]:
@@ -215,7 +302,7 @@ class OfferGenerator:
                 if row_data:
                     rows.append(row_data)
             
-            # Create costed_data structure
+            # Create costed_data structure from stitched table
             costed_data = {
                 'tables': [{
                     'headers': headers,
@@ -224,10 +311,11 @@ class OfferGenerator:
                 'factors': {},
                 'session_id': session.get('session_id', '')
             }
-        elif 'costed_data' not in file_info:
-            raise Exception('Costed data not found. Please apply costing first.')
-        else:
-            costed_data = file_info['costed_data']
+            logger.info("Created costed_data from stitched table HTML (no costed data was available)")
+        
+        # Final check: if we still don't have costed_data, raise error
+        if not costed_data:
+            raise Exception('Costed data or stitched table not found. Please apply costing first.')
         
         # Create output directory
         session_id = session['session_id']
@@ -265,8 +353,22 @@ class OfferGenerator:
         
         # Costing factors removed - confidential information
         
+        # Log which data source was used
+        if 'factors' in costed_data and costed_data.get('factors'):
+            logger.info(f"Using costed_data with factors: {costed_data.get('factors')}")
+        else:
+            logger.info("Using costed_data (no factors recorded - may be from stitched table)")
+        
         # Tables with images
         for idx, table_data in enumerate(costed_data['tables']):
+            # Log sample data to verify costed prices are present
+            if table_data.get('rows') and len(table_data['rows']) > 0:
+                sample_row = table_data['rows'][0]
+                # Find price/rate columns in sample row
+                price_cols = [k for k in sample_row.keys() if any(term in k.lower() for term in ['rate', 'price', 'amount', 'total'])]
+                if price_cols:
+                    logger.info(f"Sample price values from first row: {[(col, sample_row.get(col)) for col in price_cols[:3]]}")
+            
             header = Paragraph(f"<b><font color='#1a365d'>Item List {idx + 1}</font></b>", self.header_style)
             story.append(header)
             story.append(Spacer(1, 0.2*inch))
@@ -286,34 +388,55 @@ class OfferGenerator:
             # Headers - clean and format, exclude Action and Product Selection columns
             headers = table_data['headers']
             
-            # Clean headers: extract text from any Paragraph object representations
+            logger.info(f"Original headers (first 3): {headers[:3] if len(headers) > 3 else headers}")
+            
+            # Clean headers: use _sanitize_text to remove any object representations
             cleaned_headers = []
-            header_mapping = {}  # Map cleaned header -> original header
+            header_mapping = {}  # Map cleaned header -> original header STRING (for row lookup)
             
             for h in headers:
                 h_str = str(h) if h is not None else ''
-                original_h = h  # Keep original for mapping
+                original_h_str = h_str  # Keep original STRING for mapping
                 
-                # If header looks like '<Paragraph at 0xHEX>TEXT', extract just TEXT
-                if '<Paragraph at ' in h_str or '<paragraph at ' in h_str.lower():
-                    match = re.search(r'>([^<]+)$', h_str)
-                    if match:
-                        h_str = match.group(1).strip()
-                    else:
-                        # No text after >, skip this header
-                        continue
+                # Use the robust sanitize function
+                h_clean = self._sanitize_text(h_str)
                 
-                cleaned_headers.append(h_str)
-                header_mapping[h_str] = original_h  # Map clean -> original
+                # Only add non-empty headers
+                if h_clean:
+                    cleaned_headers.append(h_clean)
+                    # Map clean text -> original string representation (for row.get() lookup)
+                    header_mapping[h_clean] = original_h_str
+                else:
+                    logger.warning(f"Skipping empty/malformed header: {h_str[:50]}")
+            
+            logger.info(f"Cleaned headers (first 3): {cleaned_headers[:3] if len(cleaned_headers) > 3 else cleaned_headers}")
             
             # Filter out Action/Actions and Product Selection columns
             filtered_headers = [h for h in cleaned_headers if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
+            
+            logger.info(f"Filtered headers (first 3): {filtered_headers[:3] if len(filtered_headers) > 3 else filtered_headers}")
+            logger.info(f"Filtered headers types: {[type(h).__name__ for h in filtered_headers[:3]]}")
+            logger.info(f"Filtered headers repr: {[repr(h) for h in filtered_headers[:3]]}")
             
             # Use tiny header style for tables with many columns (10+) to fit in 1-2 lines max
             num_cols = len(filtered_headers)
             header_style = self.table_header_tiny_style if num_cols > 10 else self.table_header_style
             
-            header_row = [Paragraph(f"<b>{h}</b>", header_style) for h in filtered_headers]
+            # Create header row - use Paragraph for text wrapping
+            header_row = []
+            for h in filtered_headers:
+                # Sanitize and limit length
+                h_clean = self._safe_cell(h, max_length=30)
+                if not h_clean:
+                    h_clean = 'Col'
+                logger.info(f"Creating header for: '{h_clean}'")
+                # Escape and create Paragraph
+                h_escaped = html.escape(h_clean)
+                try:
+                    p = Paragraph(f"<b>{h_escaped}</b>", header_style)
+                    header_row.append(p)
+                except:
+                    header_row.append(h_clean)
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -331,106 +454,155 @@ class OfferGenerator:
                     
                     # Check if this cell contains an image reference
                     if self.contains_image(cell_value):
-                        # Extract image path or URL and create image element
-                        image_path = self.extract_image_path(cell_value, session_id, file_id)
+                        # Extract ALL image paths from the cell
+                        all_image_paths = self.extract_all_image_paths(cell_value, session_id, file_id)
                         
-                        # If image_path is a URL, download it first
-                        if image_path and image_path.startswith('http'):
-                            from utils.image_helper import download_image
-                            cached_path = download_image(image_path)
-                            if cached_path:
-                                image_path = cached_path
+                        # Download any URLs first
+                        valid_image_paths = []
+                        for img_path in all_image_paths:
+                            if img_path and img_path.startswith('http'):
+                                from utils.image_helper import download_image
+                                cached_path = download_image(img_path)
+                                if cached_path and os.path.exists(cached_path):
+                                    valid_image_paths.append(cached_path)
+                            elif img_path and os.path.exists(img_path):
+                                valid_image_paths.append(img_path)
                         
-                        if image_path and os.path.exists(image_path):
+                        if valid_image_paths:
                             try:
-                                # Create image with LARGER sizing to match Excel preview
                                 from PIL import Image as PILImage
-                                pil_img = PILImage.open(image_path)
-                                img_width, img_height = pil_img.size
+                                from reportlab.platypus import Table as InnerTable
                                 
-                                # Much larger images like in Excel - 1.5" x 1.5" max
-                                max_width = 1.5 * inch
-                                max_height = 1.5 * inch
+                                num_images = len(valid_image_paths)
                                 
-                                # Scale to fit within bounds while preserving aspect ratio
-                                width_ratio = max_width / img_width
-                                height_ratio = max_height / img_height
-                                scale_ratio = min(width_ratio, height_ratio)
+                                # Calculate image size based on number of images
+                                # Smaller images when there are more of them
+                                if num_images == 1:
+                                    max_size = 1.2 * inch
+                                elif num_images == 2:
+                                    max_size = 0.7 * inch
+                                elif num_images <= 4:
+                                    max_size = 0.55 * inch
+                                else:
+                                    max_size = 0.45 * inch
                                 
-                                final_width = img_width * scale_ratio
-                                final_height = img_height * scale_ratio
+                                # Create image objects
+                                image_objects = []
+                                for img_path in valid_image_paths[:6]:  # Max 6 images
+                                    try:
+                                        pil_img = PILImage.open(img_path)
+                                        img_width, img_height = pil_img.size
+                                        
+                                        # Scale to fit
+                                        scale_ratio = min(max_size / img_width, max_size / img_height)
+                                        final_width = img_width * scale_ratio
+                                        final_height = img_height * scale_ratio
+                                        
+                                        img = RLImage(img_path, width=final_width, height=final_height)
+                                        image_objects.append(img)
+                                    except:
+                                        pass
                                 
-                                # Ensure reasonable minimum size
-                                if final_width < 0.8 * inch:
-                                    final_width = 0.8 * inch
-                                if final_height < 0.8 * inch:
-                                    final_height = 0.8 * inch
-                                
-                                img = RLImage(image_path, width=final_width, height=final_height)
-                                table_row.append(img)
+                                if image_objects:
+                                    if len(image_objects) == 1:
+                                        # Single image - just add it
+                                        table_row.append(image_objects[0])
+                                    else:
+                                        # Multiple images - arrange in grid (2 columns)
+                                        grid_rows = []
+                                        for i in range(0, len(image_objects), 2):
+                                            if i + 1 < len(image_objects):
+                                                grid_rows.append([image_objects[i], image_objects[i+1]])
+                                            else:
+                                                grid_rows.append([image_objects[i], ''])
+                                        
+                                        # Create inner table for image grid
+                                        inner_table = InnerTable(grid_rows)
+                                        inner_table.setStyle(TableStyle([
+                                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                                            ('LEFTPADDING', (0, 0), (-1, -1), 1),
+                                            ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+                                            ('TOPPADDING', (0, 0), (-1, -1), 1),
+                                            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                                        ]))
+                                        table_row.append(inner_table)
+                                else:
+                                    table_row.append('[Img]')
                             except Exception as e:
-                                # If image fails, show placeholder text
-                                table_row.append(Paragraph("[Image]", self.table_cell_style))
+                                table_row.append('[Img]')
                         else:
-                            # Image not found, show placeholder
-                            table_row.append(Paragraph("[Image]", self.table_cell_style))
+                            table_row.append('[Img]')
                     else:
-                        # Regular text cell - use final costed value only
-                        # Strip any HTML tags that might remain
-                        final_value = re.sub(r'<[^>]+>', '', str(cell_value))
+                        # Regular text cell - use Paragraphs for wrapping
+                        h_lower = h.lower()
+                        if 'descript' in h_lower:
+                            cell_style = self.table_description_style
+                            max_len = 300  # Keep full description
+                        elif 'item' in h_lower or 'product' in h_lower:
+                            cell_style = self.table_cell_style
+                            max_len = 60
+                        elif self.is_numeric_column(h):
+                            cell_style = self.table_numeric_style
+                            max_len = 12
+                        else:
+                            cell_style = self.table_cell_style
+                            max_len = 20
+                        
+                        # Sanitize and limit length
+                        final_value = self._safe_cell(cell_value, max_length=max_len)
                         
                         # Format numbers nicely
-                        if self.is_numeric_column(h):
+                        if self.is_numeric_column(h) and final_value:
                             try:
                                 num_val = float(re.sub(r'[^\d.-]', '', final_value))
                                 final_value = f"{num_val:,.2f}"
                             except:
                                 pass
                         
-                        # Limit very long text to prevent cell overflow
-                        if len(final_value) > 800:
-                            final_value = final_value[:797] + '...'
+                        if not final_value:
+                            final_value = '-'
                         
-                        # Use smaller font for description/item columns with heavy text
-                        h_lower = h.lower()
-                        if ('descript' in h_lower or 'item' in h_lower) and len(final_value) > 200:
-                            cell_style = self.table_description_style
-                        elif self.is_numeric_column(h):
-                            # Use extra small font for numeric columns to prevent wrapping (single-line)
-                            cell_style = self.table_numeric_style
-                        else:
-                            cell_style = self.table_cell_style
-                        
-                        table_row.append(Paragraph(final_value, cell_style))
+                        # Create Paragraph for text wrapping
+                        final_escaped = html.escape(final_value)
+                        try:
+                            p = Paragraph(final_escaped, cell_style)
+                            table_row.append(p)
+                        except:
+                            table_row.append(final_value)
                 
                 table_rows.append(table_row)
             
             # Create ReportLab table with appropriate column widths using filtered headers
             col_widths = self.calculate_column_widths(filtered_headers, len(filtered_headers))
-            t = Table(table_rows, colWidths=col_widths, repeatRows=1, rowHeights=None)
             
-            # Enhanced table styling
+            # Split large tables into smaller chunks to prevent ReportLab overflow
+            MAX_ROWS_PER_TABLE = 15  # Smaller chunks for stability
+            
+            # Enhanced table styling with WORDWRAP for text cells
             table_style = TableStyle([
                 # Header styling
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d4af37')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 0), (-1, 0), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 3),
+                ('TOPPADDING', (0, 0), (-1, 0), 3),
+                ('WORDWRAP', (0, 0), (-1, 0)),  # Enable word wrap for headers
                 
                 # Data rows styling
                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
                 ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 1), (-1, -1), 'TOP'),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('LEFTPADDING', (0, 1), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 1), (-1, -1), 4),
+                ('FONTSIZE', (0, 1), (-1, -1), 5),
+                ('TOPPADDING', (0, 1), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
+                ('LEFTPADDING', (0, 1), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 1), (-1, -1), 2),
+                ('WORDWRAP', (0, 1), (-1, -1)),  # Enable word wrap for data
                 
                 # Grid
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
@@ -440,8 +612,30 @@ class OfferGenerator:
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
             ])
             
-            t.setStyle(table_style)
-            story.append(t)
+            try:
+                if len(table_rows) > MAX_ROWS_PER_TABLE:
+                    # Split into chunks
+                    header_row_data = table_rows[0]
+                    data_rows = table_rows[1:]
+                    
+                    for i in range(0, len(data_rows), MAX_ROWS_PER_TABLE - 1):
+                        chunk_rows = [header_row_data] + data_rows[i:i + MAX_ROWS_PER_TABLE - 1]
+                        
+                        # Use regular Table with splitByRow for page breaks
+                        t = Table(chunk_rows, colWidths=col_widths, repeatRows=1, splitByRow=True)
+                        t.setStyle(table_style)
+                        story.append(t)
+                        story.append(Spacer(1, 0.15*inch))
+                else:
+                    # Small table - use regular Table
+                    t = Table(table_rows, colWidths=col_widths, repeatRows=1, splitByRow=True)
+                    t.setStyle(table_style)
+                    story.append(t)
+            except Exception as table_error:
+                logger.error(f"Failed to create table: {table_error}")
+                # Fallback: create a simple text summary
+                story.append(Paragraph(f"[Table with {len(table_rows)} rows - see Excel export for details]", self.styles['Normal']))
+            
             story.append(Spacer(1, 0.4*inch))
         
         # Summary with updated VAT (5%)
@@ -493,17 +687,27 @@ class OfferGenerator:
         return output_file
     
     def calculate_subtotal(self, tables):
-        """Calculate subtotal from all tables"""
+        """Calculate subtotal from all tables - recalculate totals if needed"""
         subtotal = 0.0
         
         for table in tables:
+            headers = table.get('headers', [])
             for row in table['rows']:
+                # First, ensure totals are recalculated
+                from utils.costing_engine import CostingEngine
+                engine = CostingEngine()
+                row = engine.recalculate_totals(row, headers)
+                
+                # Then sum up total/amount columns
                 for key, value in row.items():
                     # Look for total/amount columns, exclude original values
-                    if ('total' in key.lower() or 'amount' in key.lower()) and '_original' not in key:
+                    key_lower = str(key).lower()
+                    if (('total' in key_lower or ('amount' in key_lower and 'total' in key_lower)) and 
+                        '_original' not in key_lower):
                         try:
                             num_value = float(str(value).replace(',', '').replace('OMR', '').replace('$', '').strip())
-                            subtotal += num_value
+                            if not (num_value != num_value) and num_value > 0:  # Check for NaN
+                                subtotal += num_value
                         except:
                             pass
         
@@ -546,79 +750,91 @@ class OfferGenerator:
         
         return None
     
+    def extract_all_image_paths(self, cell_value, session_id, file_id):
+        """Extract ALL image paths or URLs from cell value (for multi-image cells)"""
+        image_paths = []
+        try:
+            import re
+            cell_str = str(cell_value)
+            
+            # Find all img src patterns
+            matches = re.findall(r'src=["\']([^"\']+)["\']', cell_str)
+            for img_path_or_url in matches:
+                # If it's a URL, add it directly
+                if img_path_or_url.startswith('http://') or img_path_or_url.startswith('https://'):
+                    image_paths.append(img_path_or_url)
+                else:
+                    # Build absolute path
+                    img_path_or_url = img_path_or_url.lstrip('/')
+                    if img_path_or_url.startswith('outputs'):
+                        image_paths.append(img_path_or_url)
+                    else:
+                        img_path = os.path.join('outputs', session_id, file_id, img_path_or_url)
+                        image_paths.append(img_path)
+            
+            # Also find img_in_ patterns
+            img_in_matches = re.findall(r'(imgs/img_in_[^"\s<>]+\.jpg)', cell_str)
+            for img_relative_path in img_in_matches:
+                img_path = os.path.join('outputs', session_id, file_id, img_relative_path)
+                if img_path not in image_paths:
+                    image_paths.append(img_path)
+        except Exception as e:
+            pass
+        
+        return image_paths
+    
     def is_numeric_column(self, header):
         """Check if column likely contains numeric values"""
         numeric_keywords = ['qty', 'quantity', 'rate', 'price', 'amount', 'total', 'cost']
         return any(keyword in header.lower() for keyword in numeric_keywords)
     
     def calculate_column_widths(self, headers, num_cols):
-        """Calculate dynamic column widths - PRIORITIZE images/descriptions, scale for many columns"""
+        """Calculate dynamic column widths - prioritize image and description"""
         total_width = 7.5 * inch  # A4 page width minus margins
-        
-        # Detect if too many columns - scale everything down
-        has_many_columns = num_cols > 10
-        scale_for_columns = 0.75 if has_many_columns else 1.0
         
         # Identify column types and assign appropriate widths
         widths = []
-        has_description = False
-        has_image = False
         
         for header in headers:
             h_lower = header.lower()
             
-            # Serial number column - minimal (SN)
-            if 'sn' in h_lower or 'sl' in h_lower or 'si' in h_lower or (h_lower in ['no', '#']) or 'serial' in h_lower:
-                widths.append(0.25 * inch * scale_for_columns)
-            
+            # Image/reference column - PRIORITY: Large for product images
+            if 'img' in h_lower or 'image' in h_lower or 'indicative' in h_lower:
+                widths.append(1.4 * inch)
+            # Description column - PRIORITY: Large for full text
+            elif 'descript' in h_lower or 'discript' in h_lower:
+                widths.append(2.0 * inch)
+            # Item/Product name - medium
+            elif 'item' in h_lower or 'product' in h_lower:
+                widths.append(0.7 * inch)
             # Location column - small
             elif 'location' in h_lower or 'loc' in h_lower:
-                widths.append(0.45 * inch * scale_for_columns)
-            
-            # Image/reference column - PRIORITY: Keep large even with many columns
-            elif 'img' in h_lower or 'image' in h_lower or 'indicative' in h_lower or 'ref' in h_lower:
-                widths.append(1.8 * inch * max(0.85, scale_for_columns))  # Don't shrink as much
-                has_image = True
-            
-            # Description column - PRIORITY: Keep large for detailed text
-            elif 'descript' in h_lower or 'discript' in h_lower:
-                widths.append(3.8 * inch * max(0.85, scale_for_columns))  # Don't shrink as much
-                has_description = True
-            
-            # Item/Product name - small if description exists
-            elif 'item' in h_lower or 'product' in h_lower:
-                widths.append((0.7 * inch if has_description else 2.3 * inch) * scale_for_columns)
-            
-            # Unit column - minimal
-            elif 'unit' in h_lower and 'rate' not in h_lower and 'price' not in h_lower and 'total' not in h_lower:
-                widths.append(0.3 * inch * scale_for_columns)
-            
+                widths.append(0.4 * inch)
+            # Serial number - very small
+            elif 'sn' in h_lower or 'sl' in h_lower or h_lower in ['no', '#']:
+                widths.append(0.25 * inch)
+            # Unit column - very small
+            elif h_lower == 'unit' or (h_lower.startswith('unit') and 'rate' not in h_lower and 'price' not in h_lower):
+                widths.append(0.3 * inch)
             # Quantity columns - small
-            elif 'qty' in h_lower or 'quantity' in h_lower or 'office' in h_lower:
-                widths.append(0.35 * inch * scale_for_columns)
-            
-            # Rate/Price - compact numbers
-            elif 'rate' in h_lower or 'price' in h_lower:
-                widths.append(0.5 * inch * scale_for_columns)
-            
-            # Total/Amount - medium for numbers
-            elif 'amount' in h_lower or 'total' in h_lower:
-                widths.append(0.6 * inch * scale_for_columns)
-            
+            elif 'qty' in h_lower or 'quantity' in h_lower:
+                widths.append(0.35 * inch)
+            # Rate/Price/Amount/Total - compact
+            elif 'rate' in h_lower or 'price' in h_lower or 'amount' in h_lower or 'total' in h_lower:
+                widths.append(0.5 * inch)
             # Supplier/Brand/Model - medium
             elif 'supplier' in h_lower or 'brand' in h_lower or 'model' in h_lower:
-                widths.append(0.6 * inch * scale_for_columns)
-            
-            # Default for unknown columns - small
+                widths.append(0.5 * inch)
+            # All other columns - small
             else:
-                widths.append(0.5 * inch * scale_for_columns)
+                widths.append(0.4 * inch)
         
         # Normalize to fit total width
         current_total = sum(widths)
         if current_total > total_width:
             scale_factor = total_width / current_total
-            widths = [w * scale_factor for w in widths]
-        elif current_total < total_width * 0.95:  # If too small, expand proportionally
+            widths = [max(w * scale_factor, 0.35 * inch) for w in widths]  # Ensure minimum after scaling
+        elif current_total < total_width * 0.95:
             scale_factor = (total_width * 0.98) / current_total
             widths = [w * scale_factor for w in widths]
         

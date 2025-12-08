@@ -1,7 +1,10 @@
 import pandas as pd
 import json
 import re
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class CostingEngine:
     """Apply costing factors to extracted tables"""
@@ -228,12 +231,22 @@ class CostingEngine:
         total_col = None
         
         for header in headers:
-            header_lower = header.lower()
-            if 'qty' in header_lower or 'quantity' in header_lower:
+            header_lower = str(header).lower()
+            # Find QTY column
+            if ('qty' in header_lower or 'quantity' in header_lower) and 'unit' not in header_lower:
                 qty_col = header
-            elif 'unit rate' in header_lower or 'unit price' in header_lower:
+            # Find UNIT RATE column - more flexible matching
+            elif ('rate' in header_lower or 'price' in header_lower) and 'unit' in header_lower:
                 rate_col = header
-            elif header_lower in ['total', 'amount', 'total amount']:
+            elif ('rate' in header_lower or 'price' in header_lower) and 'total' not in header_lower and 'amount' not in header_lower:
+                # Fallback: any rate/price column that's not total
+                if not rate_col:  # Only use if we haven't found a better match
+                    rate_col = header
+            # Find TOTAL/AMOUNT column
+            elif 'total' in header_lower or ('amount' in header_lower and 'total' in header_lower):
+                total_col = header
+            elif header_lower == 'amount' and not total_col:
+                # Use as fallback for total
                 total_col = header
         
         if qty_col and rate_col and total_col:
@@ -243,5 +256,6 @@ class CostingEngine:
             if qty is not None and rate is not None:
                 total = qty * rate
                 row[total_col] = f"{total:.2f}"
+                logger.info(f"Recalculated total: {qty} * {rate} = {total} for columns {qty_col} * {rate_col} = {total_col}")
         
         return row

@@ -525,6 +525,67 @@ class BrandDatabase:
         
         return results
     
+    def get_product(self, brand_name: str, category: str, subcategory: str, model_name: str, tier: str) -> Optional[Dict]:
+        """
+        Get a specific product by brand, category, subcategory, model, and tier
+        
+        Args:
+            brand_name: Name of the brand
+            category: Product category (e.g., 'seating', 'desking')
+            subcategory: Product subcategory (e.g., 'executive_chairs', 'task_chairs')
+            model_name: Product model name
+            tier: Budget tier ('budgetary', 'mid_range', 'high_end')
+        
+        Returns:
+            Product dictionary with description, image_url, etc., or None if not found
+        """
+        try:
+            # Normalize tier name
+            tier_key = tier.lower().replace(' ', '_').replace('-', '_')
+            category_key = category.lower()
+            
+            # Get brands for this tier and category
+            brands = self.get_brands_by_tier_and_category(tier_key, category_key)
+            
+            for brand in brands:
+                if brand['name'].lower() != brand_name.lower():
+                    continue
+                
+                models = brand.get('models', {})
+                if subcategory in models:
+                    for model in models[subcategory]:
+                        if model.get('model', '').strip().lower() == model_name.strip().lower():
+                            # Build product data
+                            product = {
+                                'brand': brand['name'],
+                                'model': model.get('model', ''),
+                                'description': ', '.join(model.get('features', [])) if model.get('features') else '',
+                                'price_range': model.get('price_range', ''),
+                                'features': model.get('features', []),
+                                'category': category,
+                                'subcategory': subcategory,
+                                'tier': tier,
+                                'country': brand.get('country', ''),
+                                'website': brand.get('website', ''),
+                                'image_url': None  # BrandDatabase doesn't store image URLs, use image_helper
+                            }
+                            
+                            # Try to get image URL from image_helper
+                            try:
+                                from utils.image_helper import get_product_image_url
+                                image_url = get_product_image_url(brand_name, category, subcategory, model_name, tier_key)
+                                if image_url:
+                                    product['image_url'] = image_url
+                            except:
+                                pass
+                            
+                            return product
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error getting product: {e}")
+            return None
+    
     def get_all_tiers(self) -> List[str]:
         """Get all available budget tiers"""
         return ['Budgetary', 'Mid-Range', 'High-End']

@@ -343,6 +343,12 @@ class DownloadManager:
             ws.append(headers)
             self.style_header_row(ws, header_row_num)
             
+            # Recalculate totals for all rows before exporting
+            from utils.costing_engine import CostingEngine
+            engine = CostingEngine()
+            for row in table['rows']:
+                row = engine.recalculate_totals(row, headers)
+            
             # Find image column index
             image_col_indices = []
             for idx, h in enumerate(headers):
@@ -412,9 +418,9 @@ class DownloadManager:
             
             ws.append([])  # Empty row
         
-        # Summary
+        # Summary - recalculate to ensure accuracy
         subtotal = self.calculate_subtotal(costed_data['tables'])
-        vat = subtotal * 0.15
+        vat = subtotal * 0.05  # 5% VAT (not 15%)
         grand_total = subtotal + vat
         
         ws.append(['', '', '', '', 'Subtotal:', subtotal])
