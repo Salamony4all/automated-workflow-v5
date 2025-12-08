@@ -59,30 +59,46 @@ logger.info(f"Brands data directory configured: {BRANDS_DATA_DIR}")
 try:
     # Check if we're using a different directory than the repo's brands_data
     if BRANDS_DATA_DIR != 'brands_data' and os.path.exists('brands_data'):
+        logger.info(f"Volume mount detected: {BRANDS_DATA_DIR}")
+        
+        # Ensure volume directory exists
+        os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
+        
         # Check if volume is empty or has fewer files than repo
         repo_files = [f for f in os.listdir('brands_data') if f.endswith('.json')]
         volume_files = [f for f in os.listdir(BRANDS_DATA_DIR) if f.endswith('.json')] if os.path.exists(BRANDS_DATA_DIR) else []
         
+        logger.info(f"Repository has {len(repo_files)} brand files")
+        logger.info(f"Volume has {len(volume_files)} brand files")
+        
         if len(volume_files) < len(repo_files):
-            logger.info(f"Initializing volume with {len(repo_files)} brand files from repository...")
+            logger.info(f"Syncing {len(repo_files)} brand files to volume...")
+            copied_count = 0
             for filename in repo_files:
                 src = os.path.join('brands_data', filename)
                 dst = os.path.join(BRANDS_DATA_DIR, filename)
                 if not os.path.exists(dst):
                     shutil.copy2(src, dst)
-                    logger.info(f"Copied {filename} to volume")
-            logger.info("Volume initialization complete")
+                    logger.info(f"✓ Copied {filename} to volume")
+                    copied_count += 1
+                else:
+                    logger.info(f"✓ {filename} already exists in volume")
+            logger.info(f"Volume sync complete: {copied_count} files copied, {len(volume_files)} already present")
+        else:
+            logger.info(f"Volume already contains all brand files ({len(volume_files)} files)")
     
     # Verify brand files exist
     brand_files = [f for f in os.listdir(BRANDS_DATA_DIR) if f.endswith('.json')] if os.path.exists(BRANDS_DATA_DIR) else []
-    logger.info(f"Brand files available in {BRANDS_DATA_DIR}: {len(brand_files)} files")
+    logger.info(f"✓ Brand files available in {BRANDS_DATA_DIR}: {len(brand_files)} files")
     if len(brand_files) > 0:
-        logger.info(f"Sample files: {brand_files[:5]}")
+        logger.info(f"✓ Loaded brands: {', '.join([f.replace('.json', '') for f in sorted(brand_files)])}")
     else:
-        logger.warning(f"No brand JSON files found in {BRANDS_DATA_DIR}!")
+        logger.error(f"✗ CRITICAL: No brand JSON files found in {BRANDS_DATA_DIR}!")
+        logger.error(f"✗ Please verify volume mount path is correct: /data/brands_data")
         
 except Exception as e:
-    logger.error(f"Error checking/initializing brand data: {e}")
+    logger.error(f"✗ Error checking/initializing brand data: {e}")
+    logger.error(f"✗ Stack trace:", exc_info=True)
 
 # PP-StructureV3 API Configuration
 # Using API URL from official documentation (PP-StructureV3_API_en documentation.txt)
