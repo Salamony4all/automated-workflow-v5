@@ -8974,7 +8974,7 @@
                 updateProgressPopup(20, `Preparing ${formatName}...`);
 
                 updateProgressPopup(50, `Generating ${formatName}...`);
-                const response = await fetch(`/generate-offer/${currentFileIdForCosting}`, {
+                const response = await fetch(`/generate-offer-costed/${currentFileIdForCosting}`, {
                     method: 'POST'
                 });
 
@@ -14558,7 +14558,7 @@
          */
         async function generateOfferPDF(fileId) {
             await applyZeroCostingAndExecute(fileId, 'Offer PDF', async (fId) => {
-                const response = await fetch(`/generate-offer/${fId}`, {
+                const response = await fetch(`/generate-offer-zero/${fId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });

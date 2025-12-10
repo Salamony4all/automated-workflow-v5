@@ -20,6 +20,17 @@ logger = logging.getLogger(__name__)
 class PresentationGenerator:
     """Generate eye-catching technical presentations - 1 page per item"""
     
+    # Header variations mapping (lowercase for matching) - same as OfferGenerator
+    HEADER_VARIANTS = {
+        'description': ['description', 'discription', 'desc', 'descriptn', 'desciption', 'descripton'],
+        'quantity': ['quantity', 'qty', 'quantiy', 'qnty', 'quan'],
+        'unit': ['unit', 'units', 'uit', 'uom', 'u/m'],
+        'unit_rate': ['unit rate', 'unitrate', 'unit_rate', 'rate', 'unit price', 'unitprice', 'price'],
+        'amount': ['amount', 'total', 'ammount', 'amnt', 'total amount', 'totalamount'],
+        'item': ['item', 'item no', 'item number', 'itm', 'sl.no', 'sl no', 'serial', 'sn', 's.no', 's no'],
+        'image': ['image', 'img', 'picture', 'pic', 'photo', 'img ref', 'img.ref', 'image ref', 'img reference'],
+    }
+    
     def __init__(self):
         self.styles = getSampleStyleSheet()
         self.setup_custom_styles()
@@ -35,6 +46,33 @@ class PresentationGenerator:
             alignment=TA_CENTER,
             fontName='Helvetica-Bold'
         )
+    
+    def normalize_header(self, header):
+        """Normalize header name to standard form, handling typos and variations.
+        
+        Args:
+            header: Original header string (may contain typos)
+            
+        Returns:
+            Normalized header name (e.g., 'Description', 'Quantity', etc.)
+        """
+        if not header:
+            return header
+            
+        # Clean and lowercase for comparison
+        clean_header = str(header).strip().lower()
+        # Remove special chars and extra spaces
+        clean_header = re.sub(r'[^\w\s]', ' ', clean_header)
+        clean_header = re.sub(r'\s+', ' ', clean_header).strip()
+        
+        # Check against known variants
+        for standard_name, variants in self.HEADER_VARIANTS.items():
+            if clean_header in variants:
+                # Return proper case version
+                return standard_name.replace('_', ' ').title()
+        
+        # If no match, return cleaned original
+        return header.strip()
         
         self.item_title_style = ParagraphStyle(
             'ItemTitle',
@@ -185,9 +223,28 @@ class PresentationGenerator:
         product_selections = product_selections or []
         
         for table in costed_data.get('tables', []):
-            headers = [h for h in table.get('headers', []) if str(h).lower() not in ['action', 'actions', 'product selection', 'productselection']]
+            # Normalize headers to handle typos
+            raw_headers = table.get('headers', [])
+            headers = []
+            header_mapping = {}  # Map normalized -> original for row lookups
+            
+            for h in raw_headers:
+                h_str = str(h).lower() if h else ''
+                # Skip action/selection columns
+                if h_str in ['action', 'actions', 'product selection', 'productselection']:
+                    continue
+                    
+                # Normalize the header
+                h_normalized = self.normalize_header(h)
+                headers.append(h_normalized)
+                header_mapping[h_normalized] = h  # Store original for row.get()
             
             for row_idx, row in enumerate(table.get('rows', [])):
+                # Helper function to get row value using normalized header
+                def get_row_value(normalized_header):
+                    original_header = header_mapping.get(normalized_header, normalized_header)
+                    return row.get(original_header, '')
+                
                 # Log all available columns for debugging
                 logger.info(f"Row headers: {list(row.keys())}")
                 
@@ -201,7 +258,7 @@ class PresentationGenerator:
                     for h in headers:
                         h_str = str(h).lower() if h else ''
                         if 'brand description' in h_str or (h_str == 'brand description'):
-                            raw_description = row.get(h, '')
+                            raw_description = get_row_value(h)
                             description = self.strip_html(raw_description)
                             if description and description.strip() and 'no description' not in description.lower():
                                 logger.info(f"Found BRAND DESCRIPTION column '{h}' (length: {len(description)}): {description[:150]}...")
@@ -214,7 +271,7 @@ class PresentationGenerator:
                         h_str = str(h).lower() if h else ''
                         # Check for description column (most detailed) - but skip Brand Description if already checked
                         if ('descript' in h_str or 'discript' in h_str) and 'brand' not in h_str:
-                            raw_description = row.get(h, '')
+                            raw_description = get_row_value(h)
                             description = self.strip_html(raw_description)
                             logger.info(f"Found DESCRIPTION column '{h}' (length: {len(description)}): {description[:150]}...")
                             description_found = True
@@ -225,7 +282,7 @@ class PresentationGenerator:
                     for h in headers:
                         h_str = str(h).lower() if h else ''
                         if 'item' in h_str or 'product' in h_str:
-                            raw_description = row.get(h, '')
+                            raw_description = get_row_value(h)
                             description = self.strip_html(raw_description)
                             logger.info(f"Found ITEM/PRODUCT column '{h}' (length: {len(description)}): {description[:150]}...")
                             break
@@ -236,9 +293,9 @@ class PresentationGenerator:
                 for h in headers:
                     h_str = str(h).lower() if h else ''
                     if 'qty' in h_str or 'quantity' in h_str:
-                        qty = self.strip_html(row.get(h, ''))
+                        qty = self.strip_html(get_row_value(h))
                     if 'unit' in h_str and 'rate' not in h_str:
-                        unit = self.strip_html(row.get(h, ''))
+                        unit = self.strip_html(get_row_value(h))
                 
                 # Find pricing
                 unit_rate = ''
@@ -246,9 +303,9 @@ class PresentationGenerator:
                 for h in headers:
                     h_str = str(h).lower() if h else ''
                     if 'rate' in h_str or 'price' in h_str:
-                        unit_rate = self.strip_html(row.get(h, ''))
+                        unit_rate = self.strip_html(get_row_value(h))
                     if 'total' in h_str or 'amount' in h_str:
-                        total = self.strip_html(row.get(h, ''))
+                        total = self.strip_html(get_row_value(h))
                 
                 # Find reference image(s) from table - for multi-budget, this will be small reference image
                 reference_image_paths = []
@@ -257,7 +314,7 @@ class PresentationGenerator:
                 
                 for h in headers:
                     h_str = str(h).lower() if h else ''
-                    cell_value = row.get(h, '')
+                    cell_value = get_row_value(h)
                     
                     if is_multibudget:
                         # For multi-budget: Priority 1 - Brand Image from costed table
@@ -269,14 +326,14 @@ class PresentationGenerator:
                                     logger.info(f"Found BRAND IMAGE column '{h}' for multi-budget")
                         
                         # For multi-budget: look for indicative/reference image (not Brand Image)
-                        elif ('indicative' in h_str and 'image' in h_str) or ('image' in h_str and 'brand' not in h_str and 'product' not in h_str):
+                        elif ('indicative' in h_str and 'image' in h_str) or ('image' in h_str and 'brand' not in h_str and 'product' not in h_str) or ('img' in h_str and 'brand' not in h_str):
                             if self.contains_image(cell_value):
                                 paths = self.extract_all_image_paths(cell_value, session_id, file_id)
                                 if paths:
                                     reference_image_paths.extend(paths)
                     else:
-                        # For non-multi-budget: look for any image column
-                        if 'image' in h_str:
+                        # For non-multi-budget: look for any image column (image, img, picture, photo)
+                        if 'image' in h_str or 'img' in h_str or 'picture' in h_str or 'photo' in h_str:
                             if self.contains_image(cell_value):
                                 paths = self.extract_all_image_paths(cell_value, session_id, file_id)
                                 if paths:

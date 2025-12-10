@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 class OfferGenerator:
     """Generate offer documents with costing factors applied"""
     
+    # Header variations mapping (lowercase for matching)
+    HEADER_VARIANTS = {
+        'description': ['description', 'discription', 'desc', 'descriptn', 'desciption', 'descripton'],
+        'quantity': ['quantity', 'qty', 'quantiy', 'qnty', 'quan'],
+        'unit': ['unit', 'units', 'uit', 'uom', 'u/m'],
+        'unit_rate': ['unit rate', 'unitrate', 'unit_rate', 'rate', 'unit price', 'unitprice', 'price'],
+        'amount': ['amount', 'total', 'ammount', 'amnt', 'total amount', 'totalamount'],
+        'item': ['item', 'item no', 'item number', 'itm', 'sl.no', 'sl no', 'serial', 'sn', 's.no', 's no'],
+        'image': ['image', 'img', 'picture', 'pic', 'photo', 'img ref', 'img.ref', 'image ref', 'img reference'],
+    }
+    
     def __init__(self):
         self.styles = getSampleStyleSheet()
         self.setup_custom_styles()
@@ -109,8 +120,35 @@ class OfferGenerator:
             wordWrap='CJK'
         )
     
+    def normalize_header(self, header):
+        """Normalize header name to standard form, handling typos and variations.
+        
+        Args:
+            header: Original header string (may contain typos)
+            
+        Returns:
+            Normalized header name (e.g., 'Description', 'Quantity', etc.)
+        """
+        if not header:
+            return header
+            
+        # Clean and lowercase for comparison
+        clean_header = str(header).strip().lower()
+        # Remove special chars and extra spaces
+        clean_header = re.sub(r'[^\w\s]', ' ', clean_header)
+        clean_header = re.sub(r'\s+', ' ', clean_header).strip()
+        
+        # Check against known variants
+        for standard_name, variants in self.HEADER_VARIANTS.items():
+            if clean_header in variants:
+                # Return proper case version
+                return standard_name.replace('_', ' ').title()
+        
+        # If no match, return cleaned original
+        return header.strip()
+    
     def _sanitize_text(self, text):
-        """Aggressively sanitize text to remove any Python object representations."""
+        """Aggressively sanitize text to remove any Python object representations and HTML tags."""
         if text is None:
             return ''
         
@@ -123,13 +161,19 @@ class OfferGenerator:
         # Also remove patterns like <Paragraph at 0x...>text
         text = re.sub(r'<\w+ at 0x[0-9a-fA-F]+>', '', text)
         
-        # Remove any remaining angle brackets that could break XML
-        text = text.replace('<', '').replace('>', '')
-        
         # Remove 'object at 0x' patterns
         text = re.sub(r'object at 0x[0-9a-fA-F]+', '', text)
         
-        # Clean up any resulting double spaces
+        # Strip HTML tags but preserve text content (for cells with images)
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(text, 'html.parser')
+            text = soup.get_text(separator=' ', strip=True)
+        except:
+            # Fallback: simple tag removal if BeautifulSoup fails
+            text = re.sub(r'<[^>]+>', '', text)
+        
+        # Clean up any resulting multiple spaces
         text = re.sub(r'\s+', ' ', text).strip()
         
         return text
@@ -219,8 +263,16 @@ class OfferGenerator:
     
     def generate(self, file_id, session):
         """
-        Generate offer document
+        Generate offer document from costed_data
+        
+        Args:
+            file_id: File identifier
+            session: Flask session
+        
         Returns: path to generated PDF
+        
+        Note: This function ONLY uses costed_data. If costing hasn't been applied,
+              the caller should apply 0% costing first.
         """
         # Get file info and costed data
         uploaded_files = session.get('uploaded_files', [])
@@ -234,88 +286,42 @@ class OfferGenerator:
         if not file_info:
             raise Exception('File info not found')
         
-        # Priority: costed_data -> stitched_table -> extraction_result
-        # Check if costed_data exists and has valid tables with data
+        # ALWAYS use costed_data - this is the source of truth after costing is applied
         costed_data = None
+        
+        logger.info("Extracting data from costed_data (after costing factors applied)")
+        
         if 'costed_data' in file_info and file_info['costed_data']:
-            costed_data_check = file_info['costed_data']
+            costed_data = file_info['costed_data']
+            
             # Verify it has the expected structure with tables
-            if isinstance(costed_data_check, dict) and 'tables' in costed_data_check:
-                tables = costed_data_check.get('tables', [])
+            if isinstance(costed_data, dict) and 'tables' in costed_data:
+                tables = costed_data.get('tables', [])
+                
                 # Check if tables exist and have data
                 if tables and len(tables) > 0:
                     # Check if first table has rows
                     if tables[0].get('rows') and len(tables[0]['rows']) > 0:
-                        costed_data = costed_data_check
-                        logger.info(f"Using existing costed data for offer generation (tables: {len(tables)}, rows in first table: {len(tables[0]['rows'])})")
+                        logger.info(f"✓ Using costed_data (tables: {len(tables)}, rows in first table: {len(tables[0]['rows'])})")
+                        
+                        # Log sample pricing to verify costed values
+                        sample_row = tables[0]['rows'][0]
+                        price_cols = [k for k in sample_row.keys() if any(term in k.lower() for term in ['rate', 'price', 'amount', 'total'])]
+                        if price_cols:
+                            logger.info(f"Sample costed prices: {[(col, sample_row.get(col)) for col in price_cols[:2]]}")
+                    else:
+                        costed_data = None
+                        logger.warning("costed_data has no rows")
+                else:
+                    costed_data = None
+                    logger.warning("costed_data has no tables")
+            else:
+                costed_data = None
+                logger.warning("costed_data has invalid structure")
         
-        # Fallback: Parse from stitched table HTML only if costed_data is not available
-        if not costed_data and ('stitched_table' in file_info and file_info['stitched_table']):
-            logger.info("Parsing stitched table HTML for offer generation (no costed data found)")
-            from bs4 import BeautifulSoup
-            html_content = file_info['stitched_table']['html']
-            soup = BeautifulSoup(html_content, 'html.parser')
-            table = soup.find('table')
-            
-            if not table:
-                raise Exception('No table found in stitched data')
-            
-            # Parse table to costed_data format (excluding Product Selection and Actions columns)
-            headers = []
-            header_row = table.find('tr')
-            if header_row:
-                for th in header_row.find_all(['th', 'td']):
-                    header_text = th.get_text(strip=True)
-                    # Sanitize the header text to remove any object representations
-                    header_text = self._sanitize_text(header_text)
-                    # Exclude Product Selection and Actions columns
-                    if header_text.lower() not in ['action', 'actions', 'product selection', 'productselection']:
-                        headers.append(header_text)
-            
-            logger.info(f"Parsed headers from HTML: {headers[:3] if len(headers) > 3 else headers}")
-            
-            rows = []
-            for row in table.find_all('tr')[1:]:
-                cells = row.find_all('td')
-                if len(cells) == 0:
-                    continue
-                
-                row_data = {}
-                col_idx = 0
-                for i, cell in enumerate(cells):
-                    # Skip Product Selection and Actions cells
-                    if cell.find(class_='product-selection-dropdowns') or cell.find('button'):
-                        continue
-                    text = cell.get_text(strip=True).lower()
-                    if 'product selection' in text or 'actions' in text:
-                        continue
-                    
-                    if col_idx < len(headers):
-                        # Keep image HTML if present
-                        img = cell.find('img')
-                        if img:
-                            row_data[headers[col_idx]] = str(cell)
-                        else:
-                            row_data[headers[col_idx]] = cell.get_text(strip=True)
-                        col_idx += 1
-                
-                if row_data:
-                    rows.append(row_data)
-            
-            # Create costed_data structure from stitched table
-            costed_data = {
-                'tables': [{
-                    'headers': headers,
-                    'rows': rows
-                }],
-                'factors': {},
-                'session_id': session.get('session_id', '')
-            }
-            logger.info("Created costed_data from stitched table HTML (no costed data was available)")
-        
-        # Final check: if we still don't have costed_data, raise error
+        # If no costed_data found, raise error
         if not costed_data:
-            raise Exception('Costed data or stitched table not found. Please apply costing first.')
+            raise Exception('No costed data found. Please apply costing factors first (even 0% for original prices).')
         
         # Create output directory
         session_id = session['session_id']
@@ -359,16 +365,22 @@ class OfferGenerator:
         else:
             logger.info("Using costed_data (no factors recorded - may be from stitched table)")
         
-        # Tables with images
+        # Tables with images - one table per sheet with page break
         for idx, table_data in enumerate(costed_data['tables']):
+            # Add page break before each new sheet (except first)
+            if idx > 0:
+                from reportlab.platypus import PageBreak
+                story.append(PageBreak())
+            
             # Log sample data to verify costed prices are present
             if table_data.get('rows') and len(table_data['rows']) > 0:
                 sample_row = table_data['rows'][0]
                 # Find price/rate columns in sample row
                 price_cols = [k for k in sample_row.keys() if any(term in k.lower() for term in ['rate', 'price', 'amount', 'total'])]
                 if price_cols:
-                    logger.info(f"Sample price values from first row: {[(col, sample_row.get(col)) for col in price_cols[:3]]}")
+                    logger.info(f"Sheet {idx + 1} - Sample prices: {[(col, sample_row.get(col)) for col in price_cols[:3]]}")
             
+            # Sheet header
             header = Paragraph(f"<b><font color='#1a365d'>Item List {idx + 1}</font></b>", self.header_style)
             story.append(header)
             story.append(Spacer(1, 0.2*inch))
@@ -385,12 +397,13 @@ class OfferGenerator:
             # Prepare table data with images
             table_rows = []
             
-            # Headers - clean and format, exclude Action and Product Selection columns
+            # Headers - USE ACTUAL EXTRACTED HEADERS (don't normalize to avoid SN->Item conversion)
             headers = table_data['headers']
             
-            logger.info(f"Original headers (first 3): {headers[:3] if len(headers) > 3 else headers}")
+            logger.info(f"Raw extracted headers: {headers}")
             
-            # Clean headers: use _sanitize_text to remove any object representations
+            # Clean headers: use _sanitize_text ONLY to remove object representations
+            # DO NOT normalize to preserve original header names
             cleaned_headers = []
             header_mapping = {}  # Map cleaned header -> original header STRING (for row lookup)
             
@@ -398,25 +411,23 @@ class OfferGenerator:
                 h_str = str(h) if h is not None else ''
                 original_h_str = h_str  # Keep original STRING for mapping
                 
-                # Use the robust sanitize function
-                h_clean = self._sanitize_text(h_str)
+                # ONLY sanitize (remove HTML/objects) - DO NOT normalize
+                h_clean = self._sanitize_text(h_str).strip()
                 
                 # Only add non-empty headers
                 if h_clean:
                     cleaned_headers.append(h_clean)
-                    # Map clean text -> original string representation (for row.get() lookup)
+                    # Map cleaned header -> original string representation
                     header_mapping[h_clean] = original_h_str
                 else:
-                    logger.warning(f"Skipping empty/malformed header: {h_str[:50]}")
+                    logger.warning(f"Skipping empty header")
             
-            logger.info(f"Cleaned headers (first 3): {cleaned_headers[:3] if len(cleaned_headers) > 3 else cleaned_headers}")
+            logger.info(f"Cleaned headers (preserving original names): {cleaned_headers}")
             
             # Filter out Action/Actions and Product Selection columns
             filtered_headers = [h for h in cleaned_headers if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
             
-            logger.info(f"Filtered headers (first 3): {filtered_headers[:3] if len(filtered_headers) > 3 else filtered_headers}")
-            logger.info(f"Filtered headers types: {[type(h).__name__ for h in filtered_headers[:3]]}")
-            logger.info(f"Filtered headers repr: {[repr(h) for h in filtered_headers[:3]]}")
+            logger.info(f"Final headers for PDF: {filtered_headers}")
             
             # Use tiny header style for tables with many columns (10+) to fit in 1-2 lines max
             num_cols = len(filtered_headers)
@@ -536,9 +547,10 @@ class OfferGenerator:
                     else:
                         # Regular text cell - use Paragraphs for wrapping
                         h_lower = h.lower()
-                        if 'descript' in h_lower:
+                        # Support both correct spelling and common typos: description, discription, descriptn, etc.
+                        if 'descript' in h_lower or 'discript' in h_lower:
                             cell_style = self.table_description_style
-                            max_len = 300  # Keep full description
+                            max_len = None  # Don't truncate descriptions - show full text
                         elif 'item' in h_lower or 'product' in h_lower:
                             cell_style = self.table_cell_style
                             max_len = 60
@@ -549,8 +561,13 @@ class OfferGenerator:
                             cell_style = self.table_cell_style
                             max_len = 20
                         
-                        # Sanitize and limit length
-                        final_value = self._safe_cell(cell_value, max_length=max_len)
+                        # Sanitize text
+                        if max_len is None:
+                            # For descriptions: sanitize but don't truncate
+                            final_value = self._sanitize_text(cell_value)
+                        else:
+                            # For other columns: sanitize and limit length
+                            final_value = self._safe_cell(cell_value, max_length=max_len)
                         
                         # Format numbers nicely
                         if self.is_numeric_column(h) and final_value:
@@ -614,21 +631,24 @@ class OfferGenerator:
             
             try:
                 if len(table_rows) > MAX_ROWS_PER_TABLE:
-                    # Split into chunks
+                    # Split into chunks - only show header at the start of each NEW PAGE, not each chunk
                     header_row_data = table_rows[0]
                     data_rows = table_rows[1:]
                     
                     for i in range(0, len(data_rows), MAX_ROWS_PER_TABLE - 1):
                         chunk_rows = [header_row_data] + data_rows[i:i + MAX_ROWS_PER_TABLE - 1]
                         
-                        # Use regular Table with splitByRow for page breaks
-                        t = Table(chunk_rows, colWidths=col_widths, repeatRows=1, splitByRow=True)
+                        # Don't use repeatRows - it causes headers to repeat multiple times on same page
+                        t = Table(chunk_rows, colWidths=col_widths, splitByRow=True)
                         t.setStyle(table_style)
                         story.append(t)
-                        story.append(Spacer(1, 0.15*inch))
+                        
+                        # Only add spacer if not the last chunk
+                        if i + MAX_ROWS_PER_TABLE - 1 < len(data_rows):
+                            story.append(Spacer(1, 0.15*inch))
                 else:
-                    # Small table - use regular Table
-                    t = Table(table_rows, colWidths=col_widths, repeatRows=1, splitByRow=True)
+                    # Small table - single table
+                    t = Table(table_rows, colWidths=col_widths, splitByRow=True)
                     t.setStyle(table_style)
                     story.append(t)
             except Exception as table_error:
@@ -700,11 +720,17 @@ class OfferGenerator:
                 
                 # Then sum up total/amount columns
                 for key, value in row.items():
-                    # Look for total/amount columns, exclude original values
+                    # Look for total/amount columns (Amount OMR, Total, etc), exclude original values
                     key_lower = str(key).lower()
-                    if (('total' in key_lower or ('amount' in key_lower and 'total' in key_lower)) and 
-                        '_original' not in key_lower):
+                    if (('total' in key_lower or 'amount' in key_lower) and 
+                        '_original' not in key_lower and
+                        'unit rate' not in key_lower):  # Exclude unit rate, only sum total amounts
                         try:
+                            # Handle text values like "RATE ONLY" - skip them
+                            value_str = str(value).strip().upper()
+                            if value_str in ['RATE ONLY', 'N/A', '-', '']:
+                                continue
+                            
                             num_value = float(str(value).replace(',', '').replace('OMR', '').replace('$', '').strip())
                             if not (num_value != num_value) and num_value > 0:  # Check for NaN
                                 subtotal += num_value
@@ -789,7 +815,7 @@ class OfferGenerator:
         return any(keyword in header.lower() for keyword in numeric_keywords)
     
     def calculate_column_widths(self, headers, num_cols):
-        """Calculate dynamic column widths - prioritize image and description"""
+        """Calculate dynamic column widths - AUTO-FIT with content, prioritize image and description"""
         total_width = 7.5 * inch  # A4 page width minus margins
         
         # Identify column types and assign appropriate widths
@@ -800,42 +826,45 @@ class OfferGenerator:
             
             # Image/reference column - PRIORITY: Large for product images
             if 'img' in h_lower or 'image' in h_lower or 'indicative' in h_lower:
-                widths.append(1.4 * inch)
-            # Description column - PRIORITY: Large for full text
-            elif 'descript' in h_lower or 'discript' in h_lower:
-                widths.append(2.0 * inch)
+                widths.append(1.5 * inch)  # Increased from 1.4
+            # Description column - PRIORITY: Very large for full text
+            # Support typos: description, discription, descriptn, desciption, etc.
+            elif 'descript' in h_lower or 'discript' in h_lower or 'descrip' in h_lower:
+                widths.append(2.5 * inch)  # Increased from 2.0 for more content space
             # Item/Product name - medium
             elif 'item' in h_lower or 'product' in h_lower:
-                widths.append(0.7 * inch)
-            # Location column - small
-            elif 'location' in h_lower or 'loc' in h_lower:
-                widths.append(0.4 * inch)
-            # Serial number - very small
+                widths.append(0.8 * inch)
+            # Serial number - MINIMAL (just fits 1-3 digit numbers)
             elif 'sn' in h_lower or 'sl' in h_lower or h_lower in ['no', '#']:
-                widths.append(0.25 * inch)
-            # Unit column - very small
+                widths.append(0.25 * inch)  # Very small for serial numbers
+            # Location column - slightly larger than SN
+            elif 'location' in h_lower or 'loc' in h_lower:
+                widths.append(0.5 * inch)  # Increased from 0.4 for better location display
+            # Unit column - minimal
             elif h_lower == 'unit' or (h_lower.startswith('unit') and 'rate' not in h_lower and 'price' not in h_lower):
-                widths.append(0.3 * inch)
-            # Quantity columns - small
-            elif 'qty' in h_lower or 'quantity' in h_lower:
                 widths.append(0.35 * inch)
-            # Rate/Price/Amount/Total - compact
+            # Quantity columns - compact
+            elif 'qty' in h_lower or 'quantity' in h_lower:
+                widths.append(0.4 * inch)
+            # Rate/Price/Amount/Total - medium for numbers
             elif 'rate' in h_lower or 'price' in h_lower or 'amount' in h_lower or 'total' in h_lower:
-                widths.append(0.5 * inch)
+                widths.append(0.6 * inch)  # Increased from 0.5 for better number display
             # Supplier/Brand/Model - medium
             elif 'supplier' in h_lower or 'brand' in h_lower or 'model' in h_lower:
-                widths.append(0.5 * inch)
+                widths.append(0.6 * inch)
             # All other columns - small
             else:
-                widths.append(0.4 * inch)
+                widths.append(0.45 * inch)
         
-        # Normalize to fit total width
+        # Normalize to fit total width while respecting minimum sizes
         current_total = sum(widths)
         if current_total > total_width:
+            # Scale down proportionally but maintain minimum sizes
             scale_factor = total_width / current_total
-            widths = [max(w * scale_factor, 0.35 * inch) for w in widths]  # Ensure minimum after scaling
-        elif current_total < total_width * 0.95:
-            scale_factor = (total_width * 0.98) / current_total
+            widths = [max(w * scale_factor, 0.25 * inch) for w in widths]  # Hard minimum
+        elif current_total < total_width * 0.90:
+            # Scale up to use more space
+            scale_factor = (total_width * 0.95) / current_total
             widths = [w * scale_factor for w in widths]
         
         return widths

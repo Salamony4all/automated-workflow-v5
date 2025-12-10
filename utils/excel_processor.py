@@ -19,8 +19,124 @@ import subprocess
 import platform
 from io import BytesIO
 import shutil
+import zipfile
+import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
+
+
+def extract_wmf_images_from_excel_zip(excel_path, output_dir, sheet_name='sheet1'):
+    """
+    Extract WMF/EMF images directly from Excel ZIP structure with row mapping
+    This bypasses openpyxl's filtering of WMF images
+    
+    Args:
+        excel_path: Path to the Excel file
+        output_dir: Directory to save extracted WMF images
+        sheet_name: Sheet name (default 'sheet1')
+        
+    Returns:
+        dict: Mapping of row numbers to WMF image paths
+    """
+    wmf_row_mapping = {}
+    
+    try:
+        with zipfile.ZipFile(excel_path, 'r') as zip_ref:
+            # Parse the drawing XML to get image positions
+            drawing_xml_path = f'xl/drawings/drawing1.xml'
+            image_positions = {}
+            
+            try:
+                if drawing_xml_path in zip_ref.namelist():
+                    drawing_xml = zip_ref.read(drawing_xml_path).decode('utf-8')
+                    root = ET.fromstring(drawing_xml)
+                    
+                    # Define namespaces
+                    ns = {
+                        'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+                        'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+                        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+                    }
+                    
+                    # Find all two-cell anchors (images positioned in cells)
+                    for anchor in root.findall('.//xdr:twoCellAnchor', ns):
+                        # Get the starting row
+                        from_elem = anchor.find('xdr:from', ns)
+                        if from_elem is not None:
+                            row_elem = from_elem.find('xdr:row', ns)
+                            if row_elem is not None:
+                                row_num = int(row_elem.text) + 1  # Convert to 1-indexed
+                                
+                                # Get the image reference
+                                pic = anchor.find('.//xdr:pic', ns)
+                                if pic is not None:
+                                    blipFill = pic.find('.//xdr:blipFill', ns)
+                                    if blipFill is not None:
+                                        blip = blipFill.find('.//a:blip', ns)
+                                        if blip is not None:
+                                            embed_id = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                            if embed_id:
+                                                image_positions[embed_id] = row_num
+                    
+                    # Parse drawing rels to map embed IDs to image files
+                    drawing_rels_path = 'xl/drawings/_rels/drawing1.xml.rels'
+                    if drawing_rels_path in zip_ref.namelist():
+                        rels_xml = zip_ref.read(drawing_rels_path).decode('utf-8')
+                        rels_root = ET.fromstring(rels_xml)
+                        
+                        rel_ns = {'rel': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+                        
+                        for relationship in rels_root.findall('.//rel:Relationship', rel_ns):
+                            rel_id = relationship.get('Id')
+                            target = relationship.get('Target')
+                            
+                            if rel_id in image_positions and target:
+                                # Extract image file name from target
+                                image_file = target.split('/')[-1]
+                                row_num = image_positions[rel_id]
+                                
+                                # Now extract and convert WMF/EMF files
+                                media_path = f'xl/media/{image_file}'
+                                if media_path in zip_ref.namelist() and \
+                                   (image_file.lower().endswith('.wmf') or image_file.lower().endswith('.emf')):
+                                    
+                                    wmf_data = zip_ref.read(media_path)
+                                    
+                                    # Generate output filename with row info
+                                    output_filename = f"{sheet_name.replace(' ', '_')}_row{row_num}_wmf_{image_file}.png"
+                                    output_path = os.path.join(output_dir, output_filename)
+                                    
+                                    if convert_wmf_emf_to_png(wmf_data, output_path):
+                                        # Store relative path for the mapping
+                                        rel_path = f"imgs/{output_filename}"
+                                        
+                                        if row_num not in wmf_row_mapping:
+                                            wmf_row_mapping[row_num] = []
+                                        wmf_row_mapping[row_num].append(rel_path)
+                                        
+                                        logger.info(f"✓ Extracted WMF/EMF at row {row_num}: {image_file}")
+                                    else:
+                                        logger.warning(f"✗ Failed to convert WMF/EMF: {image_file}")
+                        
+            except Exception as xml_error:
+                logger.debug(f"Could not parse drawing XML: {xml_error}")
+                # Fall back to extracting without row mapping
+                for file_info in zip_ref.filelist:
+                    if file_info.filename.startswith('xl/media/') and \
+                       (file_info.filename.lower().endswith('.wmf') or 
+                        file_info.filename.lower().endswith('.emf')):
+                        
+                        wmf_data = zip_ref.read(file_info.filename)
+                        base_name = os.path.basename(file_info.filename)
+                        output_path = os.path.join(output_dir, f"wmf_{base_name}.png")
+                        
+                        if convert_wmf_emf_to_png(wmf_data, output_path):
+                            logger.info(f"✓ Extracted WMF/EMF (no row mapping): {file_info.filename}")
+                        
+    except Exception as e:
+        logger.error(f"Error extracting WMF images from ZIP: {e}")
+    
+    return wmf_row_mapping
 
 
 def convert_wmf_emf_to_png(image_data, output_path):
@@ -235,10 +351,11 @@ class ExcelProcessor:
                 if hasattr(img, 'format'):
                     img_format = img.format
                 
+                # Get image data once and reuse it
                 if hasattr(img, '_data'):
-                    # Try to detect format from data
                     try:
-                        img_data = img._data()
+                        img_data = img._data()  # Get data once
+                        # Detect format from data
                         if img_data[:4] == b'\x89PNG':
                             img_format = 'png'
                         elif img_data[:2] == b'\xff\xd8':
@@ -255,8 +372,8 @@ class ExcelProcessor:
                             img_format = 'emf'
                             is_wmf_emf = True
                             logger.info(f"Image {idx} is EMF format - attempting conversion to PNG")
-                    except:
-                        pass
+                    except Exception as data_error:
+                        logger.debug(f"Could not read image {idx} data: {data_error}")
                 
                 # Get image anchor (position)
                 anchor = None
@@ -290,18 +407,23 @@ class ExcelProcessor:
                             logger.warning(f"✗ Failed to convert {img_format.upper()} image {idx} - skipping")
                             continue
                     else:
-                        # Save standard image formats
+                        # Save standard image formats (data already loaded)
                         try:
-                            if hasattr(img, '_data'):
+                            if img_data:
+                                # Use the already-loaded data
                                 with open(img_path, 'wb') as f:
-                                    f.write(img._data())
+                                    f.write(img_data)
+                                logger.info(f"Extracted image {idx} at row {row_num}: {img_filename}")
                             elif hasattr(img, 'ref'):
                                 # Handle embedded images
-                                img_data = img.ref
-                                if hasattr(img_data, '_data'):
+                                img_ref = img.ref
+                                if hasattr(img_ref, '_data'):
                                     with open(img_path, 'wb') as f:
-                                        f.write(img_data())
-                            logger.info(f"Extracted image {idx} at row {row_num}: {img_filename}")
+                                        f.write(img_ref())
+                                    logger.info(f"Extracted image {idx} at row {row_num}: {img_filename}")
+                            else:
+                                logger.warning(f"Could not extract image {idx} - no data available")
+                                continue
                         except Exception as save_error:
                             logger.error(f"Failed to save image {idx}: {save_error}")
                             continue
@@ -402,8 +524,36 @@ class ExcelProcessor:
             if self.workbook is None:
                 try:
                     logger.info(f"Loading workbook with openpyxl: {self.filepath}")
-                    self.workbook = openpyxl.load_workbook(self.filepath, data_only=False)
-                    logger.info(f"✓ Workbook loaded successfully")
+                    
+                    # Use openpyxl with patched named range handling
+                    from openpyxl import load_workbook
+                    from openpyxl.reader.workbook import WorkbookParser
+                    import warnings
+                    
+                    # Monkey-patch assign_names BEFORE loading to skip invalid definitions
+                    original_assign_names = WorkbookParser.assign_names
+                    
+                    def patched_assign_names(self):
+                        """Assign names with error handling for invalid definitions"""
+                        try:
+                            original_assign_names(self)
+                        except (ValueError, Exception) as e:
+                            # Skip invalid named ranges (like #N/A in print titles)
+                            logger.warning(f"Skipping invalid named range during workbook load: {str(e)}")
+                    
+                    WorkbookParser.assign_names = patched_assign_names
+                    
+                    # Suppress warnings about invalid print areas
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('ignore', message='Print area cannot be set')
+                        
+                        try:
+                            self.workbook = load_workbook(self.filepath, data_only=False)
+                            logger.info(f"✓ Workbook loaded successfully")
+                        finally:
+                            # Restore original method
+                            WorkbookParser.assign_names = original_assign_names
+                            
                 except Exception as wb_error:
                     error_msg = str(wb_error)
                     logger.error(f"Failed to load workbook: {error_msg}")
@@ -421,12 +571,40 @@ class ExcelProcessor:
             # Read all sheets
             try:
                 logger.info(f"Reading sheets with pandas...")
-                excel_file = pd.ExcelFile(self.filepath)
-                sheet_names = excel_file.sheet_names
-                logger.info(f"✓ Found {len(sheet_names)} sheets: {sheet_names}")
+                # Use openpyxl with patched named range handling
+                from openpyxl import load_workbook
+                from openpyxl.reader.workbook import WorkbookParser
+                import warnings
+                
+                # Monkey-patch assign_names BEFORE loading to skip invalid definitions
+                original_assign_names = WorkbookParser.assign_names
+                
+                def patched_assign_names(self):
+                    """Assign names with error handling for invalid definitions"""
+                    try:
+                        original_assign_names(self)
+                    except (ValueError, Exception) as e:
+                        # Skip invalid named ranges (like #N/A in print titles)
+                        logger.warning(f"Skipping invalid named range during sheet reading: {str(e)}")
+                
+                WorkbookParser.assign_names = patched_assign_names
+                
+                # Suppress warnings about invalid print areas
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore', message='Print area cannot be set')
+                    
+                    try:
+                        wb = load_workbook(self.filepath, data_only=True, keep_links=False)
+                        sheet_names = wb.sheetnames
+                        wb.close()
+                        logger.info(f"✓ Found {len(sheet_names)} sheets: {sheet_names}")
+                    finally:
+                        # Restore original method
+                        WorkbookParser.assign_names = original_assign_names
+                        
             except Exception as pd_error:
                 error_msg = str(pd_error)
-                logger.error(f"Pandas failed to read file: {error_msg}")
+                logger.error(f"Failed to read file: {error_msg}")
                 raise ValueError(f"Cannot read Excel file structure: {error_msg}. Please save the file as a new .xlsx file in Excel and try again.")
             
             results = {}
@@ -486,6 +664,60 @@ class ExcelProcessor:
         
         # If no clear header found, return 0
         return 0
+    
+    def _is_product_table(self, df):
+        """
+        Validate if the dataframe contains a proper product-centric table structure.
+        Returns True only if it has the essential columns for a product table.
+        """
+        if df.empty or len(df.columns) < 3:
+            return False
+        
+        # Convert all column names to lowercase for comparison
+        columns_lower = [str(col).lower().strip() for col in df.columns]
+        columns_str = ' '.join(columns_lower)
+        
+        # Essential columns that MUST be present in a product table
+        essential_keywords = {
+            'item_id': ['sn', 's.n', 'sl.no', 'serial', 'item', 's no', 's.no', 'no.', 'no'],
+            'description': ['description', 'desc', 'discription', 'item description', 'product', 'material', 'particulars', 'specification'],
+            'pricing': ['rate', 'price', 'unit rate', 'unit price', 'amount', 'total', 'value', 'cost']
+        }
+        
+        # Check for essential columns
+        has_item_id = any(keyword in columns_str for keyword in essential_keywords['item_id'])
+        has_description = any(keyword in columns_str for keyword in essential_keywords['description'])
+        has_pricing = any(keyword in columns_str for keyword in essential_keywords['pricing'])
+        
+        # A valid product table MUST have at least: item identifier + description + pricing
+        if not (has_item_id and has_description and has_pricing):
+            logger.info(f"Sheet rejected: Missing essential product columns. Has ID:{has_item_id}, Desc:{has_description}, Price:{has_pricing}")
+            return False
+        
+        # Additional validation: check if the data rows look like product data
+        # Skip if it's mostly non-product data (project info, summaries, etc.)
+        non_product_keywords = [
+            'project', 'client', 'supplier', 'date', 'particulars', 
+            'conversion', 'country', 'freight', 'insurance', 'customs',
+            'clearance', 'add:', 'less:', 'total containers', 'material cost'
+        ]
+        
+        # Check first few non-header rows for product-like content
+        sample_rows = df.head(10)
+        non_product_count = 0
+        
+        for _, row in sample_rows.iterrows():
+            row_str = ' '.join(str(val).lower() for val in row if pd.notna(val))
+            if any(keyword in row_str for keyword in non_product_keywords):
+                non_product_count += 1
+        
+        # If more than 60% of sample rows contain non-product keywords, reject
+        if non_product_count > len(sample_rows) * 0.6:
+            logger.info(f"Sheet rejected: Contains too much non-product data ({non_product_count}/{len(sample_rows)} rows)")
+            return False
+        
+        logger.info("Sheet validated as product table")
+        return True
     
     def _clean_dataframe(self, df):
         """
@@ -571,10 +803,36 @@ class ExcelProcessor:
                 ws = self.workbook[sheet_name]
                 actual_sheet_name = sheet_name
             
+            # Check for defined print area to limit data extraction
+            print_area = None
+            try:
+                if ws.print_area:
+                    print_area = ws.print_area
+                    logger.info(f"Found print area for sheet '{actual_sheet_name}': {print_area}")
+            except Exception as e:
+                logger.debug(f"No print area defined for sheet '{actual_sheet_name}': {e}")
+            
             # Extract images if output_dir provided
             cell_images = {}
             if output_dir:
+                # First, extract standard images via openpyxl
                 cell_images = self._extract_images_from_sheet(ws, output_dir)
+                
+                # Then, extract WMF/EMF images directly from ZIP (bypasses openpyxl filtering)
+                wmf_images = extract_wmf_images_from_excel_zip(
+                    self.filepath, 
+                    os.path.join(output_dir, 'imgs'),
+                    sheet_name=actual_sheet_name
+                )
+                
+                # Merge WMF images into cell_images mapping
+                if wmf_images:
+                    logger.info(f"✓ Extracted {len(wmf_images)} rows with WMF/EMF images")
+                    for row_num, img_paths in wmf_images.items():
+                        if row_num in cell_images:
+                            cell_images[row_num].extend(img_paths)
+                        else:
+                            cell_images[row_num] = img_paths
                 
                 # Update image paths to include session/file_id for web access
                 if session_id and file_id and cell_images:
@@ -586,29 +844,103 @@ class ExcelProcessor:
                     cell_images = updated_images
             
             # Read with header=None to get raw data first
-            # Use xlrd engine for .xls files
-            if self.extension == '.xls':
-                df_raw = pd.read_excel(self.filepath, sheet_name=actual_sheet_name, header=None, engine='xlrd')
-            else:
-                df_raw = pd.read_excel(self.filepath, sheet_name=actual_sheet_name, header=None)
+            # Apply monkey-patch for invalid named ranges
+            from openpyxl.reader.workbook import WorkbookParser
+            import warnings
             
-            # Detect where the table starts
-            header_row = self._detect_table_start(df_raw)
+            # Monkey-patch assign_names BEFORE reading
+            original_assign_names = WorkbookParser.assign_names
             
-            logger.info(f"Detected header at row {header_row}")
+            def patched_assign_names(self):
+                """Assign names with error handling for invalid definitions"""
+                try:
+                    original_assign_names(self)
+                except (ValueError, Exception) as e:
+                    # Skip invalid named ranges (like #N/A in print titles)
+                    logger.warning(f"Skipping invalid named range during pandas read: {str(e)}")
             
-            # Re-read with proper header
-            # Use xlrd engine for .xls files
-            if self.extension == '.xls':
-                if header_row > 0:
-                    df = pd.read_excel(self.filepath, sheet_name=sheet_name, header=header_row, engine='xlrd')
-                else:
-                    df = pd.read_excel(self.filepath, sheet_name=sheet_name, engine='xlrd')
-            else:
-                if header_row > 0:
-                    df = pd.read_excel(self.filepath, sheet_name=sheet_name, header=header_row)
-                else:
-                    df = pd.read_excel(self.filepath, sheet_name=sheet_name)
+            WorkbookParser.assign_names = patched_assign_names
+            
+            # Suppress warnings about invalid print areas
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', message='Print area cannot be set')
+                
+                try:
+                    # Determine the range to read based on print area
+                    use_cols = None
+                    skip_rows = 0
+                    n_rows = None
+                    
+                    if print_area:
+                        # Parse print area (e.g., "$A$1:$Z$100" or "Sheet1!$A$1:$Z$100")
+                        try:
+                            # Remove sheet name if present
+                            area = print_area.split('!')[-1] if '!' in print_area else print_area
+                            # Remove $ signs
+                            area = area.replace('$', '')
+                            # If it's a valid range (contains ':'), parse it
+                            if ':' in area:
+                                start_cell, end_cell = area.split(':')
+                                
+                                # Extract column letters and row numbers
+                                import re
+                                start_match = re.match(r'([A-Z]+)(\d+)', start_cell)
+                                end_match = re.match(r'([A-Z]+)(\d+)', end_cell)
+                                
+                                if start_match and end_match:
+                                    start_col = start_match.group(1)
+                                    start_row = int(start_match.group(2))
+                                    end_col = end_match.group(1)
+                                    end_row = int(end_match.group(2))
+                                    
+                                    # Create column range (e.g., "A:G")
+                                    use_cols = f"{start_col}:{end_col}"
+                                    skip_rows = start_row - 1  # pandas uses 0-based indexing
+                                    n_rows = end_row - start_row + 1
+                                    
+                                    logger.info(f"Using print area: cols={use_cols}, skip_rows={skip_rows}, nrows={n_rows}")
+                        except Exception as e:
+                            logger.warning(f"Could not parse print area '{print_area}': {e}")
+                    
+                    # Use xlrd engine for .xls files
+                    if self.extension == '.xls':
+                        df_raw = pd.read_excel(self.filepath, sheet_name=actual_sheet_name, header=None, engine='xlrd')
+                    else:
+                        # Read with or without range restriction
+                        read_params = {
+                            'sheet_name': actual_sheet_name,
+                            'header': None,
+                            'engine': 'openpyxl'
+                        }
+                        
+                        if use_cols:
+                            read_params['usecols'] = use_cols
+                        if skip_rows > 0:
+                            read_params['skiprows'] = skip_rows
+                        if n_rows:
+                            read_params['nrows'] = n_rows
+                        
+                        df_raw = pd.read_excel(self.filepath, **read_params)
+                    
+                    # Detect where the table starts
+                    header_row = self._detect_table_start(df_raw)
+                    
+                    logger.info(f"Detected header at row {header_row}")
+                    
+                    # Re-read with proper header
+                    # Use xlrd engine for .xls files
+                    if self.extension == '.xls':
+                        if header_row > 0:
+                            df = pd.read_excel(self.filepath, sheet_name=actual_sheet_name, header=header_row, engine='xlrd')
+                        else:
+                            df = pd.read_excel(self.filepath, sheet_name=actual_sheet_name, engine='xlrd')
+                    else:
+                        # Re-read with same parameters but proper header
+                        read_params['header'] = header_row if header_row > 0 else 0
+                        df = pd.read_excel(self.filepath, **read_params)
+                finally:
+                    # Restore original method
+                    WorkbookParser.assign_names = original_assign_names
             
             # Store the actual Excel row number for each dataframe row
             # This is critical for image mapping
@@ -618,7 +950,7 @@ class ExcelProcessor:
             df = self._clean_dataframe(df)
             
             if df.empty:
-                logger.warning(f"Sheet '{sheet_name}' is empty after cleaning")
+                logger.warning(f"Sheet '{actual_sheet_name}' is empty after cleaning")
                 return {
                     'data': [],
                     'html': '<p>No data found</p>',
@@ -628,6 +960,21 @@ class ExcelProcessor:
                     'empty': True,
                     'sheet_name': actual_sheet_name,
                     'images': {}
+                }
+            
+            # Validate if this is a proper product table
+            if not self._is_product_table(df):
+                logger.warning(f"Sheet '{actual_sheet_name}' does not contain a valid product table structure - skipping")
+                return {
+                    'data': [],
+                    'html': '<p>Sheet does not contain product table data</p>',
+                    'markdown': 'Sheet does not contain product table data',
+                    'columns': [],
+                    'shape': (0, 0),
+                    'empty': True,
+                    'sheet_name': actual_sheet_name,
+                    'images': {},
+                    'validation_message': 'Not a product table - missing essential columns (SN, Description, Price)'
                 }
             
             # Get headers
@@ -803,8 +1150,37 @@ class ExcelProcessor:
             list: Sheet names
         """
         try:
-            excel_file = pd.ExcelFile(self.filepath)
-            return excel_file.sheet_names
+            # Use openpyxl with patched named range handling
+            from openpyxl import load_workbook
+            from openpyxl.reader.workbook import WorkbookParser
+            import warnings
+            
+            # Monkey-patch assign_names BEFORE loading to skip invalid definitions
+            original_assign_names = WorkbookParser.assign_names
+            
+            def patched_assign_names(self):
+                """Assign names with error handling for invalid definitions"""
+                try:
+                    original_assign_names(self)
+                except (ValueError, Exception) as e:
+                    # Skip invalid named ranges (like #N/A in print titles)
+                    logger.warning(f"Skipping invalid named range in get_sheet_names: {str(e)}")
+            
+            WorkbookParser.assign_names = patched_assign_names
+            
+            # Suppress warnings about invalid print areas
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', message='Print area cannot be set')
+                
+                try:
+                    wb = load_workbook(self.filepath, data_only=True, keep_links=False)
+                    sheet_names = wb.sheetnames
+                    wb.close()
+                    return sheet_names
+                finally:
+                    # Restore original method
+                    WorkbookParser.assign_names = original_assign_names
+                    
         except Exception as e:
             logger.error(f"Error getting sheet names from {self.filename}: {e}")
             raise
@@ -844,10 +1220,38 @@ class ExcelProcessor:
             return False, f"Invalid file extension after conversion: {self.extension}"
         
         try:
-            # Validate the (converted) xlsx file
-            excel_file = pd.ExcelFile(self.filepath)
-            logger.info(f"Successfully validated Excel file with {len(excel_file.sheet_names)} sheets")
-            return True, "Valid Excel file"
+            # Validate the (converted) xlsx file using openpyxl with patched named range handling
+            from openpyxl import load_workbook
+            from openpyxl.reader.workbook import WorkbookParser
+            import warnings
+            
+            # Monkey-patch assign_names BEFORE loading to skip invalid definitions
+            original_assign_names = WorkbookParser.assign_names
+            
+            def patched_assign_names(self):
+                """Assign names with error handling for invalid definitions"""
+                try:
+                    original_assign_names(self)
+                except (ValueError, Exception) as e:
+                    # Skip invalid named ranges (like #N/A in print titles)
+                    logger.warning(f"Skipping invalid named range: {str(e)}")
+            
+            WorkbookParser.assign_names = patched_assign_names
+            
+            # Suppress warnings about invalid print areas
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', message='Print area cannot be set')
+                
+                try:
+                    wb = load_workbook(self.filepath, data_only=True, keep_links=False)
+                    sheet_count = len(wb.sheetnames)
+                    wb.close()
+                    logger.info(f"Successfully validated Excel file with {sheet_count} sheets")
+                    return True, "Valid Excel file"
+                finally:
+                    # Restore original method
+                    WorkbookParser.assign_names = original_assign_names
+                    
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
@@ -863,8 +1267,35 @@ class ExcelProcessor:
             dict: File information
         """
         try:
-            excel_file = pd.ExcelFile(self.filepath)
-            sheet_names = excel_file.sheet_names
+            # Use openpyxl with patched named range handling
+            from openpyxl import load_workbook
+            from openpyxl.reader.workbook import WorkbookParser
+            import warnings
+            
+            # Monkey-patch assign_names BEFORE loading to skip invalid definitions
+            original_assign_names = WorkbookParser.assign_names
+            
+            def patched_assign_names(self):
+                """Assign names with error handling for invalid definitions"""
+                try:
+                    original_assign_names(self)
+                except (ValueError, Exception) as e:
+                    # Skip invalid named ranges (like #N/A in print titles)
+                    logger.warning(f"Skipping invalid named range in get_file_info: {str(e)}")
+            
+            WorkbookParser.assign_names = patched_assign_names
+            
+            # Suppress warnings about invalid print areas
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', message='Print area cannot be set')
+                
+                try:
+                    wb = load_workbook(self.filepath, data_only=True, keep_links=False)
+                    sheet_names = wb.sheetnames
+                    wb.close()
+                finally:
+                    # Restore original method
+                    WorkbookParser.assign_names = original_assign_names
             
             file_size = os.path.getsize(self.filepath)
             

@@ -1958,9 +1958,17 @@ def stitch_tables(file_id):
                     'timestamp': datetime.now().isoformat()
                 }
                 
+                # ALSO store in file_info for offer generation
+                file_info['stitched_table'] = {
+                    'html': stitched_html,
+                    'filepath': stitched_filename,
+                    'row_count': len(all_html_rows)
+                }
+                
                 session.modified = True
                 
                 logger.info(f'Stitched {len(all_html_rows)} Excel rows from {len(layout_parsing_results)} sheets using HTML')
+                logger.info(f'Saved stitched_table to file_info for file {file_id}')
                 
                 return jsonify({
                     'success': True,
@@ -2395,10 +2403,140 @@ def costing():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/generate-offer/<file_id>', methods=['POST'])
-def generate_offer(file_id):
-    """Generate offer with costing factors"""
+@app.route('/generate-offer-zero/<file_id>', methods=['POST'])
+def generate_offer_zero_costing(file_id):
+    """Generate offer with 0% costing (original prices) - ALWAYS fresh"""
     try:
+        uploaded_files = session.get('uploaded_files', [])
+        file_info = None
+        
+        for f in uploaded_files:
+            if f['id'] == file_id:
+                file_info = f
+                break
+        
+        if not file_info:
+            return jsonify({'error': 'File not found'}), 404
+        
+        logger.info(f"File info keys: {list(file_info.keys())}")
+        
+        # Get stitched table HTML
+        if 'stitched_table' not in file_info or not file_info['stitched_table']:
+            logger.error(f"No stitched_table found. Available keys: {list(file_info.keys())}")
+            return jsonify({'error': 'No extracted data found. Please stitch tables first by clicking "Stitch All Tables" button.'}), 400
+        
+        stitched_html = file_info['stitched_table'].get('html', '')
+        if not stitched_html:
+            return jsonify({'error': 'No stitched table HTML found'}), 400
+        
+        # Parse HTML to extract table data
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(stitched_html, 'html.parser')
+        table = soup.find('table')
+        
+        if not table:
+            return jsonify({'error': 'No table found in stitched HTML'}), 400
+        
+        # Extract headers
+        headers = []
+        header_row = table.find('tr')
+        if header_row:
+            for cell in header_row.find_all(['th', 'td']):
+                headers.append(cell.get_text(strip=True))
+        
+        # Extract rows (skip header row)
+        rows = []
+        for tr in table.find_all('tr')[1:]:  # Skip first row (header)
+            row_data = {}
+            cells = tr.find_all(['td', 'th'])
+            for i, cell in enumerate(cells):
+                if i < len(headers):
+                    # Check if cell contains image
+                    img = cell.find('img')
+                    if img:
+                        row_data[headers[i]] = str(cell)  # Store full HTML with image
+                    else:
+                        row_data[headers[i]] = cell.get_text(strip=True)
+            if row_data:  # Only add non-empty rows
+                rows.append(row_data)
+        
+        table_data = {'headers': headers, 'rows': rows}
+        
+        # ALWAYS apply fresh 0% costing
+        logger.info(f"Applying fresh 0% costing for file {file_id}")
+        from utils.costing_engine import CostingEngine
+        engine = CostingEngine()
+        
+        # Apply 0% factors (original prices)
+        factors = {
+            'net_margin': 0,
+            'freight': 0,
+            'customs': 0,
+            'installation': 0,
+            'exchange_rate': 1.0,
+            'additional': 0
+        }
+        
+        logger.info(f"Applying 0% costing factors: {factors}")
+        costed_result = engine.apply_factors(file_id, factors, session, table_data)
+        
+        # Temporarily store costed data for this generation only
+        original_costed_data = file_info.get('costed_data')  # Backup existing
+        file_info['costed_data'] = {
+            'factors': factors,
+            'tables': costed_result,
+            'original_table': table_data,
+            'session_id': session.get('session_id', '')
+        }
+        session.modified = True
+        logger.info("✓ 0% costing applied successfully")
+        
+        # Generate offer from 0% costed_data
+        from utils.offer_generator import OfferGenerator
+        generator = OfferGenerator()
+        result = generator.generate(file_id, session)
+        
+        # Restore original costed_data (if user had applied custom factors)
+        if original_costed_data:
+            file_info['costed_data'] = original_costed_data
+        else:
+            # Clean up temporary 0% costing
+            file_info.pop('costed_data', None)
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'file_path': result,
+            'message': 'Offer generated with original prices (0% costing)'
+        })
+    except Exception as e:
+        logger.error(f"Error generating offer with 0% costing: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/generate-offer-costed/<file_id>', methods=['POST'])
+def generate_offer_with_costing(file_id):
+    """Generate offer with previously applied costing factors"""
+    try:
+        uploaded_files = session.get('uploaded_files', [])
+        file_info = None
+        
+        for f in uploaded_files:
+            if f['id'] == file_id:
+                file_info = f
+                break
+        
+        if not file_info:
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Check if costing has been applied
+        if 'costed_data' not in file_info or not file_info['costed_data']:
+            return jsonify({'error': 'No costing applied. Please apply costing factors first or use 0% costing option.'}), 400
+        
+        logger.info(f"Generating offer with applied costing factors for file {file_id}")
+        
+        # Generate offer from existing costed_data
         from utils.offer_generator import OfferGenerator
         generator = OfferGenerator()
         result = generator.generate(file_id, session)
@@ -2406,9 +2544,10 @@ def generate_offer(file_id):
         return jsonify({
             'success': True,
             'file_path': result,
-            'message': 'Offer generated successfully'
+            'message': 'Offer generated with applied costing factors'
         })
     except Exception as e:
+        logger.error(f"Error generating offer with costing: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/multibudget/store-table', methods=['POST'])

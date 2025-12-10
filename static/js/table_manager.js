@@ -375,14 +375,20 @@ async function stitchTables(fileId) {
             stitchedHtml += tempDiv.innerHTML + `
                     </div>
                     <div style="margin-top: 20px; display: flex; justify-content: center;">
-                        <button class="action-btn" onclick="openCosting('${fileId}')">💰 Apply Costing</button>
+                        <button class="action-btn" onclick="openCosting('${fileId}')">💰 Apply Costing Factors</button>
                     </div>
-                    <div style="margin-top: 15px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
-                        <button class="action-btn" onclick="generateOfferPDF('${fileId}')">📄 Download Offer PDF</button>
-                        <button class="action-btn" onclick="generateOfferExcel('${fileId}')">📊 Download Offer Excel</button>
-                        <button class="action-btn" onclick="generatePresentationPPTX('${fileId}')">📽️ Generate Presentation</button>
-                        <button class="action-btn" onclick="generatePresentationPDF('${fileId}')">📑 Generate Presentation PDF</button>
-                        <button class="action-btn" onclick="generateMAS('${fileId}')">📋 Generate MAS</button>
+                    <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #2196F3;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; font-size: 1em;">📄 Quick Actions (Original Prices - 0% Costing)</h4>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                            <button class="action-btn" onclick="generateOfferPDF('${fileId}')" style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);">📄 Download Offer PDF</button>
+                            <button class="action-btn" onclick="generateOfferExcel('${fileId}')" style="background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);">📊 Download Offer Excel</button>
+                            <button class="action-btn" onclick="generatePresentationPPTX('${fileId}')" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">📽️ Generate Presentation</button>
+                            <button class="action-btn" onclick="generatePresentationPDF('${fileId}')" style="background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);">📑 Generate Presentation PDF</button>
+                            <button class="action-btn" onclick="generateMAS('${fileId}')" style="background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);">📋 Generate MAS</button>
+                        </div>
+                        <p style="margin: 10px 0 0 0; font-size: 0.85em; color: #666; text-align: center;">
+                            <em>💡 These actions use original prices from the file. To apply custom costing factors, click "Apply Costing Factors" above.</em>
+                        </p>
                     </div>
                 </div>
             `;
@@ -509,6 +515,24 @@ async function applyCosting() {
             if (offerActionsCard) {
                 offerActionsCard.style.display = 'block';
                 offerActionsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // Add button to generate offer with applied costing
+            const costingPreviewCard = document.getElementById('costingPreviewCard');
+            if (costingPreviewCard) {
+                // Check if button already exists
+                let costedOfferBtn = costingPreviewCard.querySelector('#generateCostedOfferBtn');
+                if (!costedOfferBtn) {
+                    const btnContainer = document.createElement('div');
+                    btnContainer.style.cssText = 'margin-top: 20px; text-align: center;';
+                    btnContainer.innerHTML = `
+                        <button id="generateCostedOfferBtn" class="action-btn" onclick="generateOfferPDFWithCosting('${currentFileIdForCosting}')" 
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px 24px; font-size: 1.1em;">
+                            📄 Download Offer PDF (With Applied Costing)
+                        </button>
+                    `;
+                    costingPreviewCard.appendChild(btnContainer);
+                }
             }
 
             // Show presentation and MAS cards with costed data
@@ -660,7 +684,7 @@ async function generateOffer() {
     }
 
     try {
-        const response = await fetch(`/generate-offer/${currentFileIdForCosting}`, {
+        const response = await fetch(`/generate-offer-costed/${currentFileIdForCosting}`, {
             method: 'POST'
         });
 
@@ -1408,11 +1432,13 @@ function extractTableData(table) {
 }
 
 /**
- * Generate and download Offer PDF
+ * Generate and download Offer PDF with 0% costing (original prices)
  */
 async function generateOfferPDF(fileId) {
-    await applyZeroCostingAndExecute(fileId, 'Offer PDF', async (fId) => {
-        const response = await fetch(`/generate-offer/${fId}`, {
+    try {
+        showAlert('⏳ Generating Offer PDF with original prices...', 'info');
+        
+        const response = await fetch(`/generate-offer-zero/${fileId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -1425,7 +1451,7 @@ async function generateOfferPDF(fileId) {
         const result = await response.json();
         if (result.success && result.file_path) {
             showAlert('✅ Offer PDF generated successfully!', 'success');
-            // Trigger download instead of opening in browser
+            // Trigger download
             const link = document.createElement('a');
             link.href = result.file_path;
             link.download = result.file_path.split('/').pop();
@@ -1435,7 +1461,46 @@ async function generateOfferPDF(fileId) {
         } else {
             throw new Error(result.error || 'Failed to generate offer PDF');
         }
-    });
+    } catch (error) {
+        console.error('Error generating offer PDF:', error);
+        showAlert(`❌ Failed to generate Offer PDF: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Generate and download Offer PDF with applied costing factors
+ */
+async function generateOfferPDFWithCosting(fileId) {
+    try {
+        showAlert('⏳ Generating Offer PDF with applied costing...', 'info');
+        
+        const response = await fetch(`/generate-offer-costed/${fileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate offer PDF');
+        }
+
+        const result = await response.json();
+        if (result.success && result.file_path) {
+            showAlert('✅ Offer PDF with costing generated successfully!', 'success');
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = result.file_path;
+            link.download = result.file_path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error(result.error || 'Failed to generate offer PDF');
+        }
+    } catch (error) {
+        console.error('Error generating offer PDF with costing:', error);
+        showAlert(`❌ ${error.message}`, 'error');
+    }
 }
 
 /**
