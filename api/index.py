@@ -1,12 +1,15 @@
 """
-Vercel serverless function entry point
-Note: This is a basic setup - the app needs significant refactoring
-for serverless deployment (external storage, database sessions, etc.)
+Vercel serverless function entry point for Flask application
 """
+import sys
+import os
+
+# Add the parent directory to the path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import Flask app
 from app import app
 
-# Export the Flask app for Vercel
-# Note: This won't work properly without refactoring file storage and sessions
-def handler(request):
-    return app(request.environ, lambda status, headers: None)
+# Export for Vercel
+app = app
 
