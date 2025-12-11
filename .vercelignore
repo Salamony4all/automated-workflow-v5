@@ -1,0 +1,79 @@
+# Vercel ignore file - excludes files from deployment
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+server.log
+
+# Railway specific files
+nixpacks.toml
+Procfile
+RAILWAY_*.md
+railway.json
+
+# Documentation (not needed at runtime)
+README_VERCEL.md
+VERCEL_*.md
+QUICKSTART_*.md
+MIGRATION_GUIDE.md
+REFACTORING_SUMMARY.md
+DEPLOYMENT_READY.md
+ARCHITECTURE.md
+CODE_REVIEW.md
+REVIEW_SUMMARY.md
+
+# Session and temporary files
+flask_session/
+uploads/
+outputs/
+test_output/
+
+# Large optional files
+static/product_images/
+
+# Unused PDF processing utilities (API-only version)
+utils/builtin_table_extractor.py
+utils/simple_table_extractor.py
+utils/improved_table_extractor.py
+utils/standalone_table_extractor.py
+utils/natural_extractor.py
+
+# Selenium scrapers (too heavy for serverless)
+utils/selenium_scraper.py
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files
+.env
+.env.*
