@@ -36,15 +36,27 @@ BRANDS_DATA_DIR = os.environ.get('BRANDS_DATA_PATH', 'brands_data')
 # Ensure brands data directory exists
 os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
 
-# Basic logging - configure to log to both file and console
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('server.log', encoding='utf-8'),
-        logging.StreamHandler()  # Also log to console
-    ]
-)
+# Basic logging - configure for serverless (console only, or /tmp for file)
+IS_VERCEL = os.environ.get('VERCEL', False)
+if IS_VERCEL:
+    # Vercel: Only console logging (filesystem is read-only except /tmp)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler()  # Console only
+        ]
+    )
+else:
+    # Local/Railway: Log to file and console
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('server.log', encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
 logger = logging.getLogger(__name__)
 
 # Initialize Flask-Session after logging is configured
