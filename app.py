@@ -14,7 +14,13 @@ import time
 from threading import Thread
 import threading
 import uuid as uuid_module
-from utils.excel_processor import process_excel_file
+
+# Lazy import excel_processor to avoid dependency issues
+try:
+    from utils.excel_processor import process_excel_file
+except ImportError as e:
+    logging.warning(f"Could not import excel_processor: {e}")
+    process_excel_file = None
 
 app = Flask(__name__)
 
